@@ -1,20 +1,27 @@
+<!-- 사이드메뉴 컴포넌트 (SideMenu.vue) -->
 <template>
   <div style="background-color: gainsboro; padding: 20px; height: 100%;">
-    <button @click="selectMenu('menu1')">메뉴 1</button>
-    <button @click="selectMenu('menu2')">메뉴 2</button>
-    <button @click="selectMenu('menu3')">메뉴 3</button>
+    <button v-if="userId === 'admin'" @click="selectMenu('menu1')">id 관리</button>
+    <button @click="selectMenu('menu2')">업로드&분석</button>
+    <button @click="selectMenu('menu3')">업로드 기록</button>
   </div>
 </template>
 
-<script>
-export default {
-  methods: {
-    selectMenu(menuName) {
-      this.$emit('change-view', menuName);
-    },
-  },
-};
+<script setup>
+import { computed ,defineEmits} from 'vue';
+import { useStore } from 'vuex'
+
+const store = useStore()
+const userId = computed(() => store.state.store_userid1)
+
+const emit = defineEmits(['change-view']);
+
+function selectMenu(menuName) {
+  emit('change-view', menuName);
+}
 </script>
+
+
 
 <style scoped>
 button {

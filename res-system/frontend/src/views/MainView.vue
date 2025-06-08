@@ -1,16 +1,21 @@
 <template>
-  <div style="display: flex; flex-direction: column; height: 100vh;">
-    <div style="height: 20%;">
+  <div style="display: flex; flex-direction: column; height: 100vh; margin: 0;">
+    <!-- Header 영역 -->
+    <div style="flex: 0 0 15%; padding: 0; margin: 0;">
       <header-view />
     </div>
-    <div style="display: flex; flex-grow: 1;">
-      <div style="width: 20%;">
+
+    <!-- 나머지 화면 영역 -->
+    <div style="display: flex; flex: 1 1 auto; padding: 0; margin: 0;">
+      <!-- LeftView -->
+      <div style="flex: 0 0 20%; padding: 0; margin: 0;">
         <left-view @change-view="updateMainView" />
       </div>
-      <div style="flex-grow: 1; background-color: white; height: 100%;"> <!-- ✅ height 추가 -->
+
+      <!-- 메인 컴포넌트 영역 -->
+      <div style="flex: 1; background-color: white; padding: 0; margin: 0;">
         <component :is="currentComponent" />
       </div>
-
     </div>
   </div>
 </template>
@@ -20,7 +25,7 @@
 <script>
 import headerView from '@/components/headerView.vue';
 import leftView from '@/components/leftView.vue';
-import uniqView from '@/components/uniqView.vue';
+import lobbyView from '@/components/lobbyView.vue';
 import { defineAsyncComponent } from 'vue';
 
 export default {
@@ -30,7 +35,7 @@ export default {
   },
   data() {
     return {
-      currentComponent: uniqView,
+      currentComponent: lobbyView,
     };
   },
   methods: {

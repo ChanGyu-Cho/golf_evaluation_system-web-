@@ -1,7 +1,6 @@
 <template>
   <div style="background-color: gainsboro; padding: 20px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
-    <h1>안녕하세요 {{store_user_name}}님!
-    </h1>
+    <h1>안녕하세요 {{store_local_name}}님! id={{store.state.store_userid1}}님!</h1>
     <!-- 로그아웃 버튼을 오른쪽에 배치 -->
     <button @click="Logout">로그아웃</button>
   </div>
@@ -15,14 +14,24 @@ const store = useStore()
 const router = useRouter(); // vue-router에서 useRouter를 import합니다.
 
 // store.state에서 값을 computed로 가져옵니다.
-const store_user_name = computed(() => store.state.store_user_name)
+const store_local_name = computed(() => store.state.store_local_name)
 
 const Logout = () => {
   // 로그아웃 처리 로직 (예: API 호출)
+  try{
+    alert("로그아웃 되었습니다.")
+    localStorage.removeItem('store_local_name'); // 로컬 스토리지에서 이름 삭제
+    sessionStorage.removeItem('store_session_name'); // 세션 스토리지에서 이름 삭제
+    store.commit('setLocalName', null); // Vuex 스토어에서 이름 삭제
+  }catch(e){
+    console.log("로그아웃 실패", e)
+  }
+
   // 로그아웃 후 메인 페이지로 이동
   router.push({ path: '/' });
 };
 </script>
+
 
 <style scoped>
 button {

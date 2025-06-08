@@ -48,9 +48,12 @@
      // 로그인 성공한 경우
 
      // store에 이름 저장
-     store.commit('setName', res.data.username); // store.commit을 사용해 mutation 호출
+     store.commit('setLocalName', res.data.username); // store.commit을 사용해 mutation 호출
+     store.commit('setSessionName', res.data.username); // store.commit을 사용해 mutation 호출
+    store.commit('setUserId1', res.data.userid); // store.commit을 사용해 mutation 호출
+    store.commit('setUserId2', res.data.userid); // store.commit을 사용해 mutation 호출
 
-     alert(`안녕하세요 ${res.data.username} 님!`);
+     alert(`안녕하세요 ${res.data.username} 님!. userid1: ${res.data.userid} 님!. `);
 
      router.push({path : "/main"}); // 로그인 성공 후 메인 페이지로 이동
        

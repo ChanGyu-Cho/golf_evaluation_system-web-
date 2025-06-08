@@ -12,6 +12,11 @@ module.exports = {
         // '/api' 로 들어오면 포트 8000(스프링 서버)로 보낸다
         target: 'http://localhost:8000',
         changeOrigin: true // cross origin 허용
+      },
+      '/images': {
+        // '/images' 로 들어오면 포트 8000(스프링 서버)로 보낸다
+        target: 'http://localhost:8000',
+        changeOrigin: true // cross origin 허용
       }
     }
   }

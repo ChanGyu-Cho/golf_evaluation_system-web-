@@ -18,19 +18,29 @@ const routes = [
   {
     path: '/menu1',
     name: 'menu1',
-    component: () => import(/* webpackChunkName: "about" */ '@/components/MenuView1.vue')
+    component: () => import(/* webpackChunkName: "about" */ '@/components/id_manage.vue')
   },
   {
     path: '/menu2',
     name: 'menu2',
-    component: () => import(/* webpackChunkName: "about" */ '@/components/MenuView2.vue')
+    component: () => import(/* webpackChunkName: "about" */ '@/components/video_upload.vue')
   },
   {
     path: '/menu3',
     name: 'menu3',
-    component: () => import(/* webpackChunkName: "about" */ '@/components/MenuView3.vue')
+    component: () => import(/* webpackChunkName: "about" */ '@/components/upload_history.vue')
   },
-]
+  {
+    path: '/videoplay',
+    name: 'VideoplayView',
+    component: () => import('@/views/VideoplayView.vue')
+  },
+  {
+    path: '/videoresult',
+    name: 'VideoresultView',
+    component: () => import('@/views/VideoresultView.vue')
+  }
+  ]
 
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),

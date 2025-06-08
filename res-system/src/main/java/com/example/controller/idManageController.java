@@ -17,7 +17,7 @@ import java.util.Map;
 @RestController
 @Slf4j
 
-public class CommonController {
+public class idManageController {
 
     @PersistenceContext
     private EntityManager entityManager;    // entityManager를 선언하고 불러와야함
@@ -120,7 +120,7 @@ public class CommonController {
         log.info("username: {}", username);
         log.info("usermail: {}", usermail);
 
-        // 먼저 userid가 이미 존재하는지 확인 (간단한 방식)
+        // 먼저 userid가 이미 존재하는지 확인
         String sql = "SELECT * FROM basemp WHERE userid = ?";
         try {
             // 네이티브 쿼리 생성
@@ -153,37 +153,69 @@ public class CommonController {
         }
     }
 
+    @PostMapping("/api/user_delete")
+    @Transactional
+    public ResponseEntity<?> userDelete(@RequestBody Map<String, Object> params) {
+        List<String> userIds = (List<String>) params.get("s_userids");
+
+        log.info("삭제 요청된 사용자 목록: {}", userIds);
+
+        if (userIds.contains("admin")) {
+            return ResponseEntity.ok("admin은 삭제할 수 없습니다");
+        }
+
+        String sql = "DELETE FROM basemp WHERE userid IN (:ids)";   // :로 바인드 파라미터 사용, ?는 순서기반, :는 이름 기반이다
+        try {
+            Query query = entityManager.createNativeQuery(sql);
+            query.setParameter("ids", userIds); // :ids에 userIds 리스트를 넣음, IN 명령어를 통해 list에 해당하면 삭제
+            int deletedCount = query.executeUpdate();
+
+            return ResponseEntity.ok(deletedCount + "명의 사용자가 삭제되었습니다");
+        } catch (Exception e) {
+            log.error("삭제 오류: ", e);
+            return ResponseEntity.internalServerError().body("사용자 삭제 실패");
+        }
+    }
 
 
-    @PostMapping("/api/user_delete")  // post 방식
+
+    @PostMapping("/api/user_edit")  // post 방식
     @Transactional  // 트랜잭션 관리
-    public ResponseEntity<?> user_delete(@RequestBody Map<String, String> params, HttpServletResponse res) {
+    public ResponseEntity<?> user_edit(@RequestBody Map<String, String> params, HttpServletResponse res) {
         String userid = params.get("s_userid");
         String userpass = params.get("s_userpass");
         String username = params.get("s_username");
-        String usermail= params.get("s_usermail");
+        String usermail = params.get("s_usermail");
 
-        log.info("username: {}", username);
-        log.info("password: {}", userpass);
+        log.info("userid: {}", userid);
+        log.info("userpass: {}", userpass);
         log.info("username: {}", username);
         log.info("usermail: {}", usermail);
 
-        String sql = "INSERT INTO basemp (userid, userpass, username, usermail) VALUES (?, ?, ?, ?)";
-
+        String sql = "SELECT * FROM basemp WHERE userid = ?";
         try {
-            // 네이티브 쿼리 생성
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, userid);
-            query.setParameter(2, userpass);
-            query.setParameter(3, username);
-            query.setParameter(4, usermail);
+            List<Object[]> results = query.getResultList();
 
-            query.executeUpdate();  // INSERT 실행
-            return ResponseEntity.ok("사용자 추가 완료");
+            if (results.isEmpty()) {
+                return ResponseEntity.ok("사용자가 존재하지 않습니다.");
+            }
+
+            String updateSql = "UPDATE basemp SET userpass = ?, username = ?, usermail = ? WHERE userid = ?";
+            Query updateQuery = entityManager.createNativeQuery(updateSql);
+            updateQuery.setParameter(1, userpass);
+            updateQuery.setParameter(2, username);
+            updateQuery.setParameter(3, usermail);
+            updateQuery.setParameter(4, userid);
+
+            updateQuery.executeUpdate();
+
+            return ResponseEntity.ok("사용자 수정 완료");
 
         } catch (Exception e) {
-            log.error("Login error: ", e);
-            return ResponseEntity.internalServerError().body("Expection Login failed");
+            log.error("Error occurred: ", e);
+            return ResponseEntity.internalServerError().body("사용자 수정 실패");
         }
     }
 }

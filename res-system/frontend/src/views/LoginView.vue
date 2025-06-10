@@ -1,23 +1,30 @@
 <template>
   <div style="display: flex; flex-direction: column; align-items: center;">
     <img src="../assets/자료조사.png" alt="로그인 이미지" style="margin-bottom: 20px; max-width: 150px;">
-    <div>
-      <label for="userid">아이디</label>
-      <input type="text" id="userid" name="userid" placeholder="아이디를 입력하세요" v-model="userId">
-    </div>
-    <div style="margin-top: 10px;">
-      <label for="userpass">비밀번호</label>
-      <input type="password" id="userpass" name="userpass" placeholder="비밀번호를 입력하세요" v-model="userPassword">
-    </div>
-    <button style="margin-top: 20px; padding: 10px 20px;" @click="loginAct">로그인</button>
+    
+    <!-- form 태그 추가, enter키로 로그인 버튼 작동 -->
+    <form @submit.prevent="loginAct" style="display: flex; flex-direction: column; align-items: center;">
+      <div>
+        <label for="userid">아이디</label>
+        <input type="text" id="userid" name="userid" placeholder="아이디를 입력하세요" v-model="userId" />
+      </div>
+      <div style="margin-top: 10px;">
+        <label for="userpass">비밀번호</label>
+        <input type="password" id="userpass" name="userpass" placeholder="비밀번호를 입력하세요" v-model="userPassword" />
+      </div>
+      <button type="submit" style="margin-top: 20px; padding: 10px 20px;">로그인</button>
+    </form>
+
+    <button style="margin-top: 10px; padding: 10px 20px;" @click="showSignup = true">회원가입</button>
+    <SignupView v-if="showSignup" @close="showSignup = false" />
   </div>
 </template>
 
- <!-- sertup을 script에 적었기에, return이 필요 없음-->
+ <!-- setup을 script에 적었기에, return이 필요 없음-->
  <script setup>
  import { ref } from 'vue';
  import axios from 'axios'; // axios를 import합니다.
-
+  import SignupView from './SignupView.vue'; // 회원가입 컴포넌트를 import합니다.
   import { useRouter } from 'vue-router'; // vue-router에서 useRouter를 import합니다.
   import { useStore } from 'vuex';  // script setup 구조에서는 store를 사용하기 위해 import합니다.
 
@@ -26,13 +33,13 @@
  
  const userId = ref('');
  const userPassword = ref('');
- 
+ const showSignup = ref(false);
+
  const loginAct = () => {
    // 로그인 처리 로직 (예: API 호출)
    // 로그인 정보가 브라우저의 콘솔에 표시(f12 개발자 도구에서 확인 가능)
    console.log('아이디:', userId.value);
    console.log('비밀번호:', userPassword.value);
-
  
    // 폼 바구니 생성
    const loginForm={
@@ -58,7 +65,7 @@
      router.push({path : "/main"}); // 로그인 성공 후 메인 페이지로 이동
        
      }else{
-       alert("post로그인 안된듯")
+       alert("id, 비밀번호를 정확히 입력해주세요.");
      }
    })
    .catch((error) => {

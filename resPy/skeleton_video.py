@@ -63,6 +63,11 @@ mp_joints = {
 def add_joint_angles_from_csv(df):
     angle_data = []
 
+    com_joints = [
+        "L_HIP", "R_HIP", "L_SHOULDER", "R_SHOULDER",
+        "L_KNEE", "R_KNEE", "L_ANKLE", "R_ANKLE"
+    ]
+
     for _, row in df.iterrows():
         frame_angles = {"frame": int(row["frame"])}
 
@@ -70,27 +75,33 @@ def add_joint_angles_from_csv(df):
             idx = mp_joints[joint_name]
             return [row[f'x_{idx}'], row[f'y_{idx}'], row[f'z_{idx}']]
 
-        # 3D 각도 계산
-        frame_angles["left_elbow_flexion"] = calculate_angle_3d([
-            get_coords("L_SHOULDER"),
-            get_coords("L_ELBOW"),
-            get_coords("L_WRIST"),
+        def get_coords_2d(joint_name, axes=('y', 'z')):
+            idx = mp_joints[joint_name]
+            return [row[f'{axes[0]}_{idx}'], row[f'{axes[1]}_{idx}']]
+
+        # 2D 각도 계산 (y-z 평면)로 변경한 부분
+        frame_angles["left_elbow_flexion"] = calculate_angle_2d([
+            get_coords_2d("L_SHOULDER"),
+            get_coords_2d("L_ELBOW"),
+            get_coords_2d("L_WRIST"),
         ])
-        frame_angles["right_elbow_flexion"] = calculate_angle_3d([
-            get_coords("R_SHOULDER"),
-            get_coords("R_ELBOW"),
-            get_coords("R_WRIST"),
+        frame_angles["right_elbow_flexion"] = calculate_angle_2d([
+            get_coords_2d("R_SHOULDER"),
+            get_coords_2d("R_ELBOW"),
+            get_coords_2d("R_WRIST"),
         ])
-        frame_angles["left_knee_flexion"] = calculate_angle_3d([
-            get_coords("L_HIP"),
-            get_coords("L_KNEE"),
-            get_coords("L_ANKLE"),
+        frame_angles["left_knee_flexion"] = calculate_angle_2d([
+            get_coords_2d("L_HIP"),
+            get_coords_2d("L_KNEE"),
+            get_coords_2d("L_ANKLE"),
         ])
-        frame_angles["right_knee_flexion"] = calculate_angle_3d([
-            get_coords("R_HIP"),
-            get_coords("R_KNEE"),
-            get_coords("R_ANKLE"),
+        frame_angles["right_knee_flexion"] = calculate_angle_2d([
+            get_coords_2d("R_HIP"),
+            get_coords_2d("R_KNEE"),
+            get_coords_2d("R_ANKLE"),
         ])
+
+        # 3D 각도 계산 유지 (엉덩이)
         frame_angles["left_hip_flexion"] = calculate_angle_3d([
             get_coords("L_SHOULDER"),
             get_coords("L_HIP"),
@@ -102,31 +113,68 @@ def add_joint_angles_from_csv(df):
             get_coords("R_KNEE"),
         ])
 
-        # 2D 각도 예시 (Y-Z 평면)
+        # 2D 어깨 굽힘 각도 (y-z) 유지
         frame_angles["left_shoulder_flexion"] = calculate_angle_2d([
-            [row[f'y_{mp_joints["L_HIP"]}'], row[f'z_{mp_joints["L_HIP"]}']],
-            [row[f'y_{mp_joints["L_SHOULDER"]}'], row[f'z_{mp_joints["L_SHOULDER"]}']],
-            [row[f'y_{mp_joints["L_ELBOW"]}'], row[f'z_{mp_joints["L_ELBOW"]}']],
+            get_coords_2d("L_HIP"),
+            get_coords_2d("L_SHOULDER"),
+            get_coords_2d("L_ELBOW"),
         ])
         frame_angles["right_shoulder_flexion"] = calculate_angle_2d([
-            [row[f'y_{mp_joints["R_HIP"]}'], row[f'z_{mp_joints["R_HIP"]}']],
-            [row[f'y_{mp_joints["R_SHOULDER"]}'], row[f'z_{mp_joints["R_SHOULDER"]}']],
-            [row[f'y_{mp_joints["R_ELBOW"]}'], row[f'z_{mp_joints["R_ELBOW"]}']],
+            get_coords_2d("R_HIP"),
+            get_coords_2d("R_SHOULDER"),
+            get_coords_2d("R_ELBOW"),
         ])
 
+        # 골반 기울기 및 회전
         frame_angles["pelvis_list"] = row[f'y_{mp_joints["R_HIP"]}'] - row[f'y_{mp_joints["L_HIP"]}']
         frame_angles["pelvis_rotation"] = row[f'x_{mp_joints["R_HIP"]}'] - row[f'x_{mp_joints["L_HIP"]}']
+
+        # COM 계산
+        com_coords = [get_coords(j) for j in com_joints]
+        com_array = np.array(com_coords)
+        com_mean = np.nanmean(com_array, axis=0)
+
+        frame_angles["com"] = {
+            "x": com_mean[0],
+            "y": com_mean[1],
+            "z": com_mean[2]
+        }
 
         angle_data.append(frame_angles)
 
     return angle_data
 
-def csv_to_precomputed_landmark_json(csv_path, json_path):
+
+# NaN 값을 None으로 변환하는 함수
+def replace_nan_with_none(obj):
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    elif isinstance(obj, list):
+        return [replace_nan_with_none(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: replace_nan_with_none(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
+def csv_to_precomputed_landmark_json(csv_path, json_path, fps):
     df = pd.read_csv(csv_path)
     angle_data = add_joint_angles_from_csv(df)
+
+    # NaN → None 변환
+    clean_data = replace_nan_with_none(angle_data)
+
+    output = {
+        "fps": fps,
+        "angles": clean_data
+    }
+
     with open(json_path, 'w') as f:
-        json.dump(angle_data, f, indent=2)
+        json.dump(output, f, indent=2, allow_nan=False)
+
     print(f"Saved JSON: {json_path}")
+
+
 
 def process_with_skeleton(input_path, output_path, csv_path, json_path):
     mp_drawing = mp.solutions.drawing_utils
@@ -211,7 +259,9 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
     out.release()
 
     # CSV 완료 후 JSON 생성
-    csv_to_precomputed_landmark_json(csv_path, json_path)
+    # 마지막 줄 변경
+    csv_to_precomputed_landmark_json(csv_path, json_path, fps)
+
 
 
 if __name__ == "__main__":

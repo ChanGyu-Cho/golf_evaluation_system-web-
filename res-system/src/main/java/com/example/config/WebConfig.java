@@ -11,6 +11,6 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // uploaded-videos 폴더에 대한 매핑 설정
         registry.addResourceHandler("/uploaded-videos/**")
-                .addResourceLocations("file:///E:/resPy/uploaded-videos/");
+                .addResourceLocations("file:///E:/resVue/resPy/uploaded-videos/");
     }
 }

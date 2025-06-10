@@ -11,6 +11,7 @@
     "ag-grid-community": "^27.3.0",
     "ag-grid-vue3": "^27.3.0",
     "axios": "^1.8.4",
+    "chart.js": "^4.4.9",
     "core-js": "^3.8.3",
     "vue": "^3.2.13",
     "vue-router": "^4.0.3",

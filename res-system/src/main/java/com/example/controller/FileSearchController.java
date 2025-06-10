@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
@@ -37,7 +38,8 @@ public class FileSearchController {
     private EntityManager entityManager;
 
     // 비디오 저장 경로 (application.properties에서 관리 권장)
-    private final String baseDir = "E:/resPy/uploaded-videos/";
+    @Value("${video.upload-dir}")
+    private String baseDir;
 
     @PostMapping("/file_search")
     public ResponseEntity<?> fileSearch(@RequestBody Map<String, String> params, HttpServletResponse res) {
@@ -49,11 +51,13 @@ public class FileSearchController {
         Query query;
 
         try {
-            if (userIdStr == null || userIdStr.trim().isEmpty()) {
-                sql = "SELECT user_id, vid_name, eval FROM basvid";
+            if (userIdStr.equalsIgnoreCase("admin")) {
+                // admin일 경우 전체 조회
+                sql = "SELECT user_id, vid_name, eval, upload_date FROM basvid";
                 query = entityManager.createNativeQuery(sql);
             } else {
-                sql = "SELECT user_id, vid_name, eval FROM basvid WHERE user_id = ?";
+                // 특정 사용자만 조회
+                sql = "SELECT user_id, vid_name, eval, upload_date FROM basvid WHERE user_id = ?";
                 query = entityManager.createNativeQuery(sql);
                 query.setParameter(1, Integer.parseInt(userIdStr));
             }
@@ -69,10 +73,11 @@ public class FileSearchController {
                     fileMap.put("user_id", row[0]);
                     fileMap.put("vid_name", row[1]);
                     fileMap.put("eval", row[2]);
+                    fileMap.put("upload_date", row[3] != null ? row[3].toString() : null);
                     fileList.add(fileMap);
                 }
 
-                log.info("조회 결과: " + fileList);
+                log.info("조회 결과: {}", fileList);
                 return ResponseEntity.ok(fileList);
             } else {
                 return ResponseEntity.ok(Map.of("status", "NOT"));
@@ -83,6 +88,8 @@ public class FileSearchController {
         }
     }
 
+
+
     @Transactional
     @PostMapping("/file_delete")
     public ResponseEntity<?> fileDelete(@RequestBody Map<String, Object> params) {
@@ -91,6 +98,8 @@ public class FileSearchController {
             if (deleteList == null || deleteList.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("message", "삭제할 항목이 없습니다."));
             }
+
+            Path basePath = Paths.get(baseDir);  // baseDir은 예: "E:\\resVue\\resPy\\uploaded-videos"
 
             for (Map<String, Object> item : deleteList) {
                 String userIdStr = String.valueOf(item.get("user_id"));
@@ -106,19 +115,26 @@ public class FileSearchController {
                 query.setParameter(2, vidName);
                 query.executeUpdate();
 
-                // 기존 삭제: 영상 파일 삭제
-                deleteFileIfExists(Paths.get(baseDir + vidName));
-                deleteFileIfExists(Paths.get(baseDir + "skeleton_" + vidName));
+                // 영상 파일 삭제
+                Path videoFile = basePath.resolve(vidName);
+                deleteFileIfExists(videoFile);
 
-// 추가 삭제: landmarkFiles 안의 csv, json 삭제
+                Path skeletonVideoFile = basePath.resolve("skeleton_" + vidName);
+                deleteFileIfExists(skeletonVideoFile);
+
+                // landmarkFiles 폴더 경로
+                Path landmarkDir = basePath.resolve("landmarkFiles");
+
                 String baseNameNoExt = vidName.contains(".")
                         ? vidName.substring(0, vidName.lastIndexOf('.'))
                         : vidName;
 
-                String landmarkDir = baseDir + "landmarkFiles" + File.separator;
-                deleteFileIfExists(Paths.get(landmarkDir + "skeleton_" + baseNameNoExt + ".csv"));
-                deleteFileIfExists(Paths.get(landmarkDir + "skeleton_" + baseNameNoExt + ".json"));
+                // landmarkFiles 내 csv, json 삭제
+                Path csvFile = landmarkDir.resolve("skeleton_" + baseNameNoExt + ".csv");
+                Path jsonFile = landmarkDir.resolve("skeleton_" + baseNameNoExt + ".json");
 
+                deleteFileIfExists(csvFile);
+                deleteFileIfExists(jsonFile);
             }
 
             return ResponseEntity.ok(Map.of("message", "삭제가 완료되었습니다."));
@@ -127,6 +143,7 @@ public class FileSearchController {
             return ResponseEntity.internalServerError().body(Map.of("message", "삭제 처리 중 오류가 발생했습니다."));
         }
     }
+
 
     private void deleteFileIfExists(Path path) {
         try {

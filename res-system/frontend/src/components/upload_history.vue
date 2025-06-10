@@ -36,8 +36,11 @@ const rowData = ref([])
 const playOriginalVideo = (vidName) => {
   router.push({ name: 'VideoplayView', query: { filename: vidName } })
 }
-const playSkeletonVideo = (vidName) => {
-  router.push({ name: 'VideoplayView', query: { filename: `skeleton_${vidName}` } })
+const playSkeletonVideo = (vidName, evalResult) => {
+  router.push({ name: 'VideoresultView',
+  query: { skeletonVideo: `skeleton_${vidName}`,
+    result: evalResult
+  } })
 }
 
 const columnDefs = [
@@ -45,6 +48,7 @@ const columnDefs = [
   { field: 'user_id', headerName: 'User ID' },
   { field: 'vid_name', headerName: '비디오 이름' },
   { field: 'eval', headerName: '평가' },
+  { field: 'upload_date', headerName: '업로드 시간' },  // ✅ 추가됨
   {
     headerName: '업로드 영상',
     cellRenderer: () => {
@@ -58,18 +62,19 @@ const columnDefs = [
     }
   },
   {
-    headerName: '가공 영상',
+    headerName: '분석 결과',
     cellRenderer: () => {
       return `<button class="btn-play" data-type="skeleton">▶</button>`
     },
     onCellClicked: (params) => {
       const type = params.event?.target?.dataset?.type
       if (type === 'skeleton') {
-        playSkeletonVideo(params.data.vid_name)
+        playSkeletonVideo(params.data.vid_name, params.data.eval)
       }
     }
   }
 ]
+
 
 const gridApi = ref(null)
 const gridColumnApi = ref(null)

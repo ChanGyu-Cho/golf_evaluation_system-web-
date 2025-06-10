@@ -68,7 +68,7 @@ def process_video(video_path, model):
 
 # 실행 (Spring에서 호출될 때 파일 경로 전달)
 if __name__ == "__main__":
-    video_dir = "E:/resPy/uploaded-videos"
+    video_dir = "E:/resVue/resPy/uploaded-videos"
     video_filename = sys.argv[1]  # Spring에서 비디오 파일 이름을 인자로 받음
     video_path = os.path.join(video_dir, video_filename)
 
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     device = torch.device('cpu')
 
     # 모델 로드
-    model_path = "E:/resPy/cnn_gru_model.pth"
+    model_path = "E:/resVue/resPy/cnn_gru_model.pth"
     model = CNN_GRU_Classifier()
     model.load_state_dict(torch.load(model_path, map_location=device))  # 모델을 CPU에 맞게 로드
 

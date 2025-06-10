@@ -4,6 +4,7 @@
     <button v-if="userId === 'admin'" @click="selectMenu('menu1')">id 관리</button>
     <button @click="selectMenu('menu2')">업로드&분석</button>
     <button @click="selectMenu('menu3')">업로드 기록</button>
+    <button @click="selectMenu('menu4')">유저 정보</button>
   </div>
 </template>
 

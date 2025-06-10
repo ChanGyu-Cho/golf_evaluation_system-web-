@@ -107,6 +107,53 @@ public class idManageController {
         }
     }
 
+    @PostMapping("/api/id_search")  // post 방식, id로만 search(개인 유저가 접근시)
+    public ResponseEntity<?> id_search(@RequestBody Map<String, String> params, HttpServletResponse res) {
+        String userid = params.get("s_userid");
+
+        log.info("userid: {}", userid);
+
+        // userid이 null이거나 빈 문자열일 경우 전체 데이터를 반환
+        String sql = "SELECT * FROM basemp WHERE userid LIKE ?";
+
+        try {
+            // 네이티브 쿼리 생성
+            Query query = entityManager.createNativeQuery(sql);
+
+            // userid이 비어 있으면 '%'로 설정하여 전체 데이터를 검색
+            if (userid == null || userid.trim().isEmpty()) {
+                query.setParameter(1, "%");
+            } else {
+                query.setParameter(1, '%'+userid + '%');  // 부분 검색을 위한 LIKE 쿼리
+            }
+
+            // 결과 조회
+            List<Object[]> results = query.getResultList();
+            log.info("results: {}", results);
+
+            if (!results.isEmpty()) {
+                List<Map<String, Object>> userList = new ArrayList<>();
+
+                for (Object[] row : results) {
+                    Map<String, Object> userMap = new HashMap<>();
+                    userMap.put("userid", row[0]);
+                    userMap.put("userpass", row[1]);
+                    userMap.put("username", row[2]);
+                    userMap.put("usermail", row[3]);
+                    userList.add(userMap);
+                }
+
+                log.info("조회 결과: " + userList);
+                return ResponseEntity.ok(userList);
+            } else {
+                return ResponseEntity.ok(Map.of("status", "NOT"));
+            }
+        } catch (Exception e) {
+            log.error("Login error: ", e);
+            return ResponseEntity.internalServerError().body("Exception Login failed");
+        }
+    }
+
     @PostMapping("/api/user_insert")  // post 방식
     @Transactional  // 트랜잭션 관리
     public ResponseEntity<?> user_insert(@RequestBody Map<String, String> params, HttpServletResponse res) {

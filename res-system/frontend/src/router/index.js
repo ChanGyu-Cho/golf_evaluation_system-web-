@@ -31,6 +31,11 @@ const routes = [
     component: () => import(/* webpackChunkName: "about" */ '@/components/upload_history.vue')
   },
   {
+    path: '/menu4',
+    name: 'menu4',
+    component: () => import(/* webpackChunkName: "about" */ '@/components/user_info.vue')
+  },
+  {
     path: '/videoplay',
     name: 'VideoplayView',
     component: () => import('@/views/VideoplayView.vue')
@@ -39,6 +44,11 @@ const routes = [
     path: '/videoresult',
     name: 'VideoresultView',
     component: () => import('@/views/VideoresultView.vue')
+  },
+  {
+    path: '/signup',
+    name: 'SignupView',
+    component: () => import('@/views/SignupView.vue')
   }
   ]
 

@@ -18,6 +18,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
+
 @RestController
 @CrossOrigin
 @RequestMapping("/images")
@@ -48,12 +51,17 @@ public class FilePythonController {
 
             int rawResult = Integer.parseInt(runPythonModel(savedFile.getAbsolutePath()));
 
-            String insertSql = "INSERT INTO basvid (user_id, vid_name, eval) VALUES (?, ?, ?)";
+            // 현재 시간 생성
+            Timestamp uploadTime = Timestamp.valueOf(LocalDateTime.now());
+
+            String insertSql = "INSERT INTO basvid (user_id, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
             Query insertQuery = entityManager.createNativeQuery(insertSql);
             insertQuery.setParameter(1, userId);
             insertQuery.setParameter(2, uniqueFilename);
             insertQuery.setParameter(3, rawResult);
+            insertQuery.setParameter(4, uploadTime);  // 현재 시간 추가
             insertQuery.executeUpdate();
+
 
             String classifyResult;
             if (1 == rawResult) {
@@ -87,7 +95,7 @@ public class FilePythonController {
 
     // Python 분류 모델 실행 후 stdout에서 결과 읽기
     private String runPythonModel(String inputPath) throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder("python", "E:/resPy/classify_video.py", inputPath);
+        ProcessBuilder pb = new ProcessBuilder("python", "E:/resVue/resPy/classify_video.py", inputPath);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -122,7 +130,7 @@ public class FilePythonController {
 
         ProcessBuilder pb = new ProcessBuilder(
                 "python",
-                "E:/resPy/skeleton_video.py",
+                "E:/resVue/resPy/skeleton_video.py",
                 inputPath,
                 outputPath,
                 csvFullPath,

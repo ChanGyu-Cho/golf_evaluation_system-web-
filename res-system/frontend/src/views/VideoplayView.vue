@@ -11,13 +11,16 @@
       브라우저가 비디오를 지원하지 않습니다.
     </video>
     <div v-else>비디오를 불러오는 중...</div>
+    <button @click="goBack">뒤로가기</button>
   </div>
+  
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
+const router = useRouter()
 const route = useRoute()
 const videoSrc = ref(null)
 
@@ -27,6 +30,10 @@ onMounted(() => {
     videoSrc.value = `http://localhost:8000/images/search_video?filename=${encodeURIComponent(filename)}`
   }
 })
+
+function goBack() {
+ router.push({ name: 'main', query: { view: 'menu3' } });  // 업로드 기록 화면으로 돌아가기
+}
 </script>
 
 <style>

@@ -68,11 +68,11 @@ public class CommentsController {
 
     // ✅ 3. 특정 메모 삭제
     @Transactional
-    @DeleteMapping("/delete/{commentId}")
-    public ResponseEntity<?> deleteTag(@PathVariable Long commentId) {
+    @DeleteMapping("/delete/{analysisId}")
+    public ResponseEntity<?> deleteTag(@PathVariable Long analysisId) {
         String deleteSql = "DELETE FROM analysis_tag WHERE id = ?";
         Query query = entityManager.createNativeQuery(deleteSql);
-        query.setParameter(1, commentId);
+        query.setParameter(1, analysisId);
         int deletedCount = query.executeUpdate();
 
         if (deletedCount > 0) {

@@ -54,9 +54,10 @@ const props = defineProps({
   jointData: { type: Array, required: true },
   currentJointData: { type: Object, required: false },
   koreanJointNameMap: { type: Object, required: true },
-  // v-model:selectedJoint
+  comStabilityScores: { type: Array, default: () => [] }, // 추가
   modelValue: { type: String, default: '' },
 })
+
 const emit = defineEmits(['update:modelValue'])
 
 // local selectedJoint to sync with parent via v-model:selectedJoint
@@ -83,6 +84,7 @@ const filteredJointData = computed(() => {
   return Object.entries(props.currentJointData).filter(([key]) => key !== 'frame')
 })
 
+
 // 차트 관련
 const chartRef = ref(null)
 let chartInstance = null
@@ -93,6 +95,54 @@ function initChart() {
   const labels = combinedData.value.map(d => d.frame)
   let datasets = []
 
+  if (selectedJointLocal.value === 'com_stability_score') {
+    // ✅ COM 안정성 지표 차트
+    const stabilityLabels = props.comStabilityScores.map(d => d.frame)
+    const stabilityData = props.comStabilityScores.map(d => d.score)
+
+    datasets.push({
+      label: 'COM 안정성 지표',
+      data: stabilityData,
+      borderColor: 'orange',
+      backgroundColor: 'rgba(255,165,0,0.2)',
+      fill: true,
+      pointRadius: 0,
+      borderWidth: 2,
+      spanGaps: true,
+    })
+
+    chartInstance?.destroy()
+    chartInstance = new Chart(chartRef.value.getContext('2d'), {
+      type: 'line',
+      data: { labels: stabilityLabels, datasets },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '프레임',
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: 'COM 안정성 score (0에 가까울수록 안정)',
+            }
+          }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: { mode: 'index', intersect: false },
+        }
+      },
+      plugins: [highlightPlugin()]
+    })
+    return
+  }
+
+  // ✅ 기존 joint chart 로직
   if (selectedJointLocal.value) {
     const data = combinedData.value.map(d => {
       const v = d[selectedJointLocal.value]
@@ -125,9 +175,7 @@ function initChart() {
     })
   }
 
-  if (chartInstance) {
-    chartInstance.destroy()
-  }
+  chartInstance?.destroy()
   chartInstance = new Chart(chartRef.value.getContext('2d'), {
     type: 'line',
     data: { labels, datasets },
@@ -144,39 +192,44 @@ function initChart() {
         y: {
           title: {
             display: true,
-            text: selectedJointLocal.value && selectedJointLocal.value.startsWith('com_') ? '좌표 값' : '각도',
+            text: selectedJointLocal.value && selectedJointLocal.value.startsWith('com_')
+              ? '무게중심 좌표 값 (0~1)'
+              : '각도 (도)',
           }
         }
       },
       plugins: {
         legend: { display: true },
         tooltip: { mode: 'index', intersect: false },
-        annotation: { annotations: {} },
       }
     },
-    plugins: [
-      {
-        id: 'chartHighlightPlugin',
-        afterDraw(chart) {
-          if (!chartInstance) return
-          if (!props.currentJointData) return
-          const ctx = chart.ctx
-          const xScale = chart.scales.x
-          const frame = props.currentJointData.frame
-          const x = xScale.getPixelForValue(frame)
-          ctx.save()
-          ctx.beginPath()
-          ctx.strokeStyle = 'red'
-          ctx.lineWidth = 2
-          ctx.moveTo(x, chart.chartArea.top)
-          ctx.lineTo(x, chart.chartArea.bottom)
-          ctx.stroke()
-          ctx.restore()
-        }
-      }
-    ]
+    plugins: [highlightPlugin()]
   })
 }
+
+// 하이라이트 플러그인 재사용
+function highlightPlugin() {
+  return {
+    id: 'chartHighlightPlugin',
+    afterDraw(chart) {
+      if (!chartInstance) return
+      if (!props.currentJointData) return
+      const ctx = chart.ctx
+      const xScale = chart.scales.x
+      const frame = props.currentJointData.frame
+      const x = xScale.getPixelForValue(frame)
+      ctx.save()
+      ctx.beginPath()
+      ctx.strokeStyle = 'red'
+      ctx.lineWidth = 2
+      ctx.moveTo(x, chart.chartArea.top)
+      ctx.lineTo(x, chart.chartArea.bottom)
+      ctx.stroke()
+      ctx.restore()
+    }
+  }
+}
+
 
 // jointData 또는 selectedJoint 변경 시 차트 업데이트
 watch([() => combinedData.value, selectedJointLocal], () => {

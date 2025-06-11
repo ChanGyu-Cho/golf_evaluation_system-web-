@@ -1,6 +1,5 @@
 
-<template>
-  <div class="container">
+<template><div class="container g-card">
     <div class="search-container">
       <input v-model="username" type="text" placeholder="이름을 입력하세요" class="search-input" />
       <button @click="handleSearch" class="search-button">검색</button>

@@ -1,6 +1,5 @@
 <!-- src/components/LandmarkInfo.vue -->
-<template>
-  <div>
+<template><div class="g-section">
     <!-- 선택박스 -->
     <div class="selector-container" v-if="jointKeys.length">
       <label for="jointSelect">관절 선택:</label>

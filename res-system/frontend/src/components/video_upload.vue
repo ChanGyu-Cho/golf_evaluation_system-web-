@@ -1,5 +1,4 @@
-<template>
-  <div>
+<template><div class="g-card">
     <input type="file" @change="onFileChange" accept="video/*" />
     <button @click="uploadVideo" :disabled="!selectedFile || loading">업로드</button>
     <div v-if="loading">처리중...</div>

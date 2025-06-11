@@ -1,5 +1,4 @@
-<template>
-  <div class="user-edit-container" v-if="user">
+<template><div class="user-edit-container g-card" v-if="user">
     <h2>내 정보 편집</h2>
 
     <div class="form-group">

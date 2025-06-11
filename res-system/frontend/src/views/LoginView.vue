@@ -1,5 +1,4 @@
-<template>
-  <div style="display: flex; flex-direction: column; align-items: center;">
+<template><div class="g-section" style="display: flex; flex-direction: column; align-items: center;">
     <img src="../assets/자료조사.png" alt="로그인 이미지" style="margin-bottom: 20px; max-width: 150px;">
     
     <!-- form 태그 추가, enter키로 로그인 버튼 작동 -->

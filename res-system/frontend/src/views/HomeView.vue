@@ -1,5 +1,4 @@
-<template>
-  <div class="home">
+<template><div class="home g-section">
     <img alt="Vue logo" src="../assets/logo.png">
     <HelloWorld msg="Welcome to Your Vue.js App"/>
   </div>

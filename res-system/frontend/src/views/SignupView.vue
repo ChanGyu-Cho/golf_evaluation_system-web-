@@ -1,5 +1,4 @@
-<template>
-  <div class="modal-overlay">
+<template><div class="modal-overlay g-section">
     <div class="modal-content">
       <h2 class="modal-title">회원가입</h2>
       <input v-model="form.id" type="text" placeholder="아이디" class="modal-input" />

@@ -1,6 +1,5 @@
 <!-- src/components/CommentsBoard.vue -->
-<template>
-  <div>
+<template><div class="g-section">
     <!-- 메모 입력 -->
     <div class="comment-form" v-if="currentJointData">
       <h4>현재 프레임 {{ currentJointData.frame }}에 메모 남기기</h4>

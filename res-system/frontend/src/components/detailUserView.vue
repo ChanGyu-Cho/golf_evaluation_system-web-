@@ -1,5 +1,4 @@
-<template>
-  <div class="modal-overlay" @click.self="closePopup">
+<template><div class="modal-overlay g-section" @click.self="closePopup">
     <div class="modal-content">
       <h3>사용자 상세 정보</h3>
       <div v-if="props.user">

@@ -1,5 +1,4 @@
-<template>
-  <div style="display: flex; flex-direction: column; height: 100vh; margin: 0;">
+<template><div class="g-section" style="display: flex; flex-direction: column; height: 100vh; margin: 0;">
     <!-- Header 영역 -->
     <div style="flex: 0 0 15%; padding: 0; margin: 0;">
       <header-view />

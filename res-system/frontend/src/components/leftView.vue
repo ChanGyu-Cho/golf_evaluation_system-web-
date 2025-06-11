@@ -1,6 +1,5 @@
 <!-- 사이드메뉴 컴포넌트 (SideMenu.vue) -->
-<template>
-  <div style="background-color: gainsboro; padding: 20px; height: 100%;">
+<template><div class="g-section" style="background-color: gainsboro; padding: 20px; height: 100%;">
     <button v-if="userId === 'admin'" @click="selectMenu('menu1')">id 관리</button>
     <button @click="selectMenu('menu2')">업로드&분석</button>
     <button @click="selectMenu('menu3')">업로드 기록</button>

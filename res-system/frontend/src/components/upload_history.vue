@@ -1,5 +1,4 @@
-<template>
-  <div class="container">
+<template><div class="container g-card">
     <div class="search-container">
       <button class="search-button delete-button" @click="handleDelete" :disabled="!hasSelectedRows">삭제</button>
     </div>
@@ -45,7 +44,7 @@ const playSkeletonVideo = (vidName, evalResult) => {
 
 const columnDefs = [
   { headerCheckboxSelection: true, checkboxSelection: true, width: 40, suppressSizeToFit: true },
-  { field: 'user_id', headerName: 'User ID' },
+  { field: 'userid', headerName: 'User ID' },
   { field: 'vid_name', headerName: '비디오 이름' },
   { field: 'eval', headerName: '평가' },
   { field: 'upload_date', headerName: '업로드 시간' },  // ✅ 추가됨
@@ -87,7 +86,7 @@ const handleSearch = () => {
   }
 
   axios.post('/images/file_search', {
-    user_id: userId.value,
+    userid: userId.value,
   })
     .then(async (response) => {
       if (Array.isArray(response.data)) {

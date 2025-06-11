@@ -1,5 +1,4 @@
-<template>
-  <div class="video-container">
+<template><div class="video-container g-section">
     <h2>비디오 재생</h2>
     <video
       v-if="videoSrc"

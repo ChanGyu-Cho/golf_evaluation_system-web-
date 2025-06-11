@@ -1,5 +1,4 @@
-<template>
-  <router-view/>
+<template><router-view class="g-card" />
 </template>
 
 <style>

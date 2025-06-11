@@ -170,7 +170,6 @@ def csv_to_precomputed_landmark_json(csv_path, json_path, fps):
         if 'com' in frame:
             del frame['com']
 
-
     # NaN → None 변환
     clean_data = replace_nan_with_none(angle_data)
 

@@ -1,5 +1,4 @@
-<template>
-  <div class="result-page-container">
+<template><div class="result-page-container g-section">
     <button @click="goBack">다시 업로드하러 가기</button>
     <h2>분류 결과: {{ result }}</h2>
 

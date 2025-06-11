@@ -1,5 +1,4 @@
-<template>
-  <div style="background-color: gainsboro; padding: 20px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
+<template><div class="g-section" style="background-color: gainsboro; padding: 20px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
     <h1>안녕하세요 {{store_local_name}}님!(id={{store.state.store_userid1}})</h1>
     <!-- 로그아웃 버튼을 오른쪽에 배치 -->
     <button @click="Logout">로그아웃</button>

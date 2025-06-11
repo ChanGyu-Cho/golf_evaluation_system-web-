@@ -25,7 +25,7 @@ public class CommentsController {
     public ResponseEntity<?> addTag(@RequestBody AnalysisTagDto dto) {
         Timestamp now = Timestamp.valueOf(LocalDateTime.now());
 
-        String insertSql = "INSERT INTO analysis_tag (user_id, analysis_id, frame_index, tag, memo, timestamp_sec) " +
+        String insertSql = "INSERT INTO analysis_tag (userid, analysis_id, frame_index, tag, memo, timestamp_sec) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";
         Query query = entityManager.createNativeQuery(insertSql);
         query.setParameter(1, dto.getUserId());
@@ -42,7 +42,7 @@ public class CommentsController {
     // ✅ 2. 특정 분석 ID에 대한 전체 태그/메모 조회
     @GetMapping("/{analysisId}")
     public ResponseEntity<?> getTags(@PathVariable String analysisId) {
-        String sql = "SELECT id, user_id, analysis_id, frame_index, tag, memo, timestamp_sec " +
+        String sql = "SELECT id, userid, analysis_id, frame_index, tag, memo, timestamp_sec " +
                 "FROM analysis_tag WHERE analysis_id = ? ORDER BY frame_index ASC";
 
         Query query = entityManager.createNativeQuery(sql);

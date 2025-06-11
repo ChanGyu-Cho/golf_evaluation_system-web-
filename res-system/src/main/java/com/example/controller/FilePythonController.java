@@ -54,7 +54,7 @@ public class FilePythonController {
             // 현재 시간 생성
             Timestamp uploadTime = Timestamp.valueOf(LocalDateTime.now());
 
-            String insertSql = "INSERT INTO basvid (user_id, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
+            String insertSql = "INSERT INTO basvid (userid, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
             Query insertQuery = entityManager.createNativeQuery(insertSql);
             insertQuery.setParameter(1, userId);
             insertQuery.setParameter(2, uniqueFilename);

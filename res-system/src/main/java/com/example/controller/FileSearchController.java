@@ -43,9 +43,9 @@ public class FileSearchController {
 
     @PostMapping("/file_search")
     public ResponseEntity<?> fileSearch(@RequestBody Map<String, String> params, HttpServletResponse res) {
-        String userIdStr = params.get("user_id");
+        String userIdStr = params.get("userid");
 
-        log.info("file_search user_id: {}", userIdStr);
+        log.info("file_search userid: {}", userIdStr);
 
         String sql;
         Query query;
@@ -53,11 +53,11 @@ public class FileSearchController {
         try {
             if (userIdStr.equalsIgnoreCase("admin")) {
                 // admin일 경우 전체 조회
-                sql = "SELECT user_id, vid_name, eval, upload_date FROM basvid";
+                sql = "SELECT userid, vid_name, eval, upload_date FROM basvid";
                 query = entityManager.createNativeQuery(sql);
             } else {
                 // 특정 사용자만 조회
-                sql = "SELECT user_id, vid_name, eval, upload_date FROM basvid WHERE user_id = ?";
+                sql = "SELECT userid, vid_name, eval, upload_date FROM basvid WHERE userid = ?";
                 query = entityManager.createNativeQuery(sql);
                 query.setParameter(1, Integer.parseInt(userIdStr));
             }
@@ -70,7 +70,7 @@ public class FileSearchController {
 
                 for (Object[] row : results) {
                     Map<String, Object> fileMap = new HashMap<>();
-                    fileMap.put("user_id", row[0]);
+                    fileMap.put("userid", row[0]);
                     fileMap.put("vid_name", row[1]);
                     fileMap.put("eval", row[2]);
                     fileMap.put("upload_date", row[3] != null ? row[3].toString() : null);
@@ -102,14 +102,14 @@ public class FileSearchController {
             Path basePath = Paths.get(baseDir);  // baseDir은 예: "E:\\resVue\\resPy\\uploaded-videos"
 
             for (Map<String, Object> item : deleteList) {
-                String userIdStr = String.valueOf(item.get("user_id"));
+                String userIdStr = String.valueOf(item.get("userid"));
                 String vidName = String.valueOf(item.get("vid_name"));
 
                 if ("admin".equals(userIdStr)) {
                     continue;
                 }
 
-                String sql = "DELETE FROM basvid WHERE user_id = ? AND vid_name = ?";
+                String sql = "DELETE FROM basvid WHERE userid = ? AND vid_name = ?";
                 Query query = entityManager.createNativeQuery(sql);
                 query.setParameter(1, Integer.parseInt(userIdStr));
                 query.setParameter(2, vidName);

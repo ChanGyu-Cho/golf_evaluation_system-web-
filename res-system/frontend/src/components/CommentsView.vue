@@ -12,10 +12,10 @@
     <!-- 메모 목록 -->
     <div class="comment-list" v-if="comments.length">
       <h3>메모 목록</h3>
-      <div v-for="c in comments" :key="c.id" class="comment-item">
+      <div v-for="c in comments" :key="c.analysisId" class="comment-item">
         <strong>[프레임 {{ c.frameIndex }}] {{ c.tag }}</strong><br />
         {{ c.memo }}<br />
-        <button @click="deleteComment(c.id)">삭제</button>
+        <button @click="deleteComment(c.analysisId)">삭제</button>
       </div>
     </div>
   </div>

@@ -1,6 +1,17 @@
-<template><div class="result-page-container g-section">
+<template>
+  <div class="result-page-container g-section">
     <button @click="goBack">다시 업로드하러 가기</button>
-    <h2>분류 결과: {{ result }}</h2>
+
+    <!-- ✅ 결과 + 배지 이미지 -->
+    <h2 class="result-title">
+      분류 결과: {{ result }}
+      <img
+        v-if="resultImage"
+        :src="resultImage"
+        class="result-badge"
+        alt="분류 결과 배지"
+      />
+    </h2>
 
     <div style="position: relative; display: inline-block;">
       <video
@@ -39,6 +50,10 @@ import LandmarkView from '@/components/LandmarkView.vue'
 import CommentsView from '@/components/CommentsView.vue'
 import { useStore } from 'vuex'
 
+/* ✅ 결과 배지 이미지 */
+import goodImg from '@/assets/최고.png'
+import badImg  from '@/assets/당황_놀람.png'
+
 const store = useStore()
 const route = useRoute()
 const router = useRouter()
@@ -54,6 +69,8 @@ const comStabilityScores = ref([])
 const selectedJoint = ref('')
 const VIDEO_FPS = ref(30)
 
+
+
 const koreanJointNameMap = {
   left_elbow_flexion: '왼쪽 팔꿈치 각도',
   right_elbow_flexion: '오른쪽 팔꿈치 각도',
@@ -65,7 +82,7 @@ const koreanJointNameMap = {
   right_shoulder_flexion: '오른쪽 어깨 각도',
   pelvis_list: '골반 상승',
   pelvis_rotation: '골반 회전',
-  com_stability_score: 'COM 안정성 지표', // 추가
+  com_stability_score: 'COM 안정성 지표',
 }
 
 const currentFrameIndex = ref(0)
@@ -79,9 +96,9 @@ watch(
   { immediate: true }
 )
 
+const svu = ref('')
 const analysisId = computed(() => `${store.state.store_userid1}_${svu.value}`)
 
-const svu = ref('')
 onMounted(async () => {
   result.value = route.query.result || ''
   svu.value = route.query.skeletonVideo || ''
@@ -96,26 +113,21 @@ onMounted(async () => {
       const res = await axios.get(jsonUrl)
       const jsonData = res.data
 
-      // jointData 생성 후 com_stability_score도 각 프레임별로 추가
       if (jsonData.fps) {
         VIDEO_FPS.value = jsonData.fps
 
-        const processedAngles = (jsonData.angles || []).map(frame => {
-          const { ...rest } = frame
-          return { ...rest }
-        })
+        const processedAngles = (jsonData.angles || []).map(frame => ({ ...frame }))
 
-        // com_stability_scores를 jointData에 매핑
-        const stabilityScoreMap = new Map((jsonData.com_stability_scores || []).map(d => [d.frame, d.score]))
+        const stabilityScoreMap = new Map(
+          (jsonData.com_stability_scores || []).map(d => [d.frame, d.score])
+        )
         processedAngles.forEach(d => {
           d.com_stability_score = stabilityScoreMap.get(d.frame) ?? null
         })
 
-        // jointData에 com_x, com_y, com_z 없이 저장!
         jointData.value = processedAngles
         comStabilityScores.value = jsonData.com_stability_scores || []
       }
-
 
       currentFrameIndex.value = 0
       currentJointData.value = jointData.value[0] || null
@@ -125,17 +137,24 @@ onMounted(async () => {
   }
 })
 
+/* ✅ 결과에 따른 이미지 선택 */
+const resultImage = computed(() =>
+  result.value === 'Good'
+    ? goodImg
+    : result.value === 'Bad'
+    ? badImg
+    : ''
+)
+
 function onTimeUpdate() {
   const currentTime = videoRef.value?.currentTime || 0
-  const currentFrame = Math.floor(currentTime * VIDEO_FPS.value)
-  currentFrameIndex.value = currentFrame
+  currentFrameIndex.value = Math.floor(currentTime * VIDEO_FPS.value)
 }
 
 function goBack() {
   router.push({ name: 'main', query: { view: 'menu3' } })
 }
 </script>
-
 
 <style scoped>
 .result-page-container {
@@ -144,6 +163,20 @@ function goBack() {
   overflow-y: auto;
   background-color: #fff;
 }
+
+/* ✅ 결과 제목 + 이미지 배치 */
+.result-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0;          /* 필요 시 조정 */
+}
+
+.result-badge {
+  width: 48px;            /* 필요 시 크기 조정 */
+  height: auto;
+}
+
 .responsive-video {
   max-width: 800px;
   width: 100%;
@@ -154,11 +187,5 @@ function goBack() {
   display: block;
   margin: 1rem auto;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-.overlay-canvas {
-  max-width: 800px;
-  width: 100%;
-  max-height: 480px;
-  height: auto;
 }
 </style>

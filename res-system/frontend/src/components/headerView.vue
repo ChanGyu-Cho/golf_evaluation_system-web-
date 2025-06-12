@@ -1,62 +1,78 @@
-<template><div class="g-section" style="background-color: gainsboro; padding: 20px; text-align: center; display: flex; justify-content: space-between; align-items: center;">
-    <h1>안녕하세요 {{store_local_name}}님!(id={{store.state.store_userid1}})</h1>
-    <!-- 로그아웃 버튼을 오른쪽에 배치 -->
-    <button @click="Logout">로그아웃</button>
-  </div>
+<template>
+  <header class="header-bar">
+    <div class="left">
+      <span class="app-title">⛳ SwingMate</span>
+    </div>
+    <div class="right">
+      <span class="welcome">안녕하세요 {{ store_local_name }}님! (id={{ store.state.store_userid1 }})</span>
+      <button class="logout-btn" @click="Logout">로그아웃</button>
+    </div>
+  </header>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router';
-import { computed } from 'vue'
-import { useStore } from 'vuex'
-const store = useStore()
-const router = useRouter(); // vue-router에서 useRouter를 import합니다.
+import { computed } from 'vue';
+import { useStore } from 'vuex';
 
-// store.state에서 값을 computed로 가져옵니다.
-const store_local_name = computed(() => store.state.store_local_name)
+const store = useStore();
+const store_local_name = computed(() => store.state.store_local_name);
+const router = useRouter();
 
 const Logout = () => {
-  // 로그아웃 처리 로직 (예: API 호출)
-  try{
-    alert("로그아웃 되었습니다.")
-    localStorage.removeItem('store_local_name'); // 로컬 스토리지에서 이름 삭제
-    sessionStorage.removeItem('store_session_name'); // 세션 스토리지에서 이름 삭제
-    store.commit('setLocalName', null); // Vuex 스토어에서 이름 삭제
-  }catch(e){
-    console.log("로그아웃 실패", e)
+  try {
+    alert('로그아웃 되었습니다.');
+    localStorage.removeItem('store_local_name');
+    // 필요시 추가 상태 초기화
+    router.push({ path: '/' });
+  } catch (err) {
+    console.error(err);
   }
-
-  // 로그아웃 후 메인 페이지로 이동
-  router.push({ path: '/' });
 };
 </script>
 
-
 <style scoped>
-button {
-  padding: 8px 15px;
-  border: none;
-  border-radius: 5px;
-  background-color: #f44336;
-  color: white;
-  cursor: pointer;
-  font-size: 1rem;
+:root {
+  --sky-color: #87ceeb;
+  --flag-color: #ff3b30;
 }
 
-/* 버튼에 마우스 오버 시 색상 변경 */
-button:hover {
-  background-color: #d32f2f;
-}
-
-/* 헤더 내에서 로그아웃 버튼을 오른쪽으로 배치 */
-div {
+.header-bar {
+  height: 64px;
+  width: 100%;
+  background: var(--sky-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  text-align: center;
+  padding: 0 24px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  color: #ffffff;
 }
 
-button {
-  margin-left: auto; /* 로그아웃 버튼을 오른쪽 끝으로 이동 */
+.app-title {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.welcome {
+  margin-right: 16px;
+  font-weight: 500;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+  background: #ffffff;
+  color: var(--flag-color);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+
+.logout-btn:hover {
+  background: var(--flag-color);
+  color: #ffffff;
 }
 </style>

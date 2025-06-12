@@ -181,7 +181,7 @@ function goBack() {
 }
 
 .badge-img {
-  width: 48px;
+  width: 100px;
   height: auto;
 }
 

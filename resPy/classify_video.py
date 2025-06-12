@@ -64,7 +64,7 @@ def process_video(video_path, model):
         prediction = torch.sigmoid(output).item()  # Sigmoid 활성화 함수를 통해 0~1 범위로 변환
 
     # 결과: 1은 "good", 0은 "bad"
-    return 1 if prediction > 0.5 else 0
+    return 1 if prediction > 0.3 else 0
 
 # 실행 (Spring에서 호출될 때 파일 경로 전달)
 if __name__ == "__main__":

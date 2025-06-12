@@ -151,7 +151,7 @@ async function deleteAll() {
 
 /* ── Watch & Mount ── */
 watch(
-  () => [props.analysis_id, props.currentJointData?.frame],
+  () => [props.analysis_id],
   fetchComments
 )
 onMounted(fetchComments)

@@ -1,17 +1,21 @@
-<template><div class="modal-overlay g-section">
-    <div class="modal-content">
-      <h2 class="modal-title">회원가입</h2>
-      <input v-model="form.id" type="text" placeholder="아이디" class="modal-input" />
-      <input v-model="form.password" type="password" placeholder="비밀번호" class="modal-input" />
-      <input v-model="form.name" type="text" placeholder="이름" class="modal-input" />
-      <input v-model="form.mail" type="email" placeholder="이메일" class="modal-input" />
-      <div class="modal-actions">
-        <button class="insert-button" @click="handleSubmit">등록</button>
-        <button class="action-button reset" @click="$emit('close')">닫기</button>
+<template>
+  <Teleport to="body">
+    <div class="modal-overlay g-section">
+      <div class="modal-content">
+        <h2 class="modal-title">회원가입</h2>
+        <input v-model="form.id" type="text" placeholder="아이디" class="modal-input" />
+        <input v-model="form.password" type="password" placeholder="비밀번호" class="modal-input" />
+        <input v-model="form.name" type="text" placeholder="이름" class="modal-input" />
+        <input v-model="form.mail" type="email" placeholder="이메일" class="modal-input" />
+        <div class="modal-actions">
+          <button class="insert-button" @click="handleSubmit">등록</button>
+          <button class="action-button reset" @click="$emit('close')">닫기</button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>
+
 
 <script setup>
 import { ref, defineEmits } from 'vue'
@@ -64,7 +68,7 @@ const handleSubmit = async () => {
 }
 
 .modal-content {
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 0.95);
   padding: 30px;
   border-radius: 10px;
   width: 400px;

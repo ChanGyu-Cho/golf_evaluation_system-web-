@@ -1,22 +1,32 @@
-<template><div class="container g-card">
+<template>
+  <div class="container g-card">
     <div class="search-container">
-      <button class="search-button delete-button" @click="handleDelete" :disabled="!hasSelectedRows">삭제</button>
+      <button
+        class="search-button delete-button"
+        @click="handleDelete"
+        :disabled="!hasSelectedRows"
+      >
+        삭제
+      </button>
     </div>
 
-    <ag-grid-vue
-      class="ag-theme-alpine"
-      style="width: 100%; height: 600px;" 
-      :rowData="rowData"
-      :columnDefs="columnDefs"
-      :animateRows="true"
-      :domLayout="'autoHeight'"
-      rowSelection="multiple"
-      :suppressRowClickSelection="true"
-      @grid-ready="onGridReady"
-      @selection-changed="onSelectionChanged"
-    />
+    <!-- ★ grid-wrapper 추가 -->
+    <div class="grid-wrapper">
+      <ag-grid-vue
+        class="ag-theme-alpine full-grid"
+        :rowData="rowData"
+        :columnDefs="columnDefs"
+        :animateRows="true"
+        :domLayout="'normal'"
+        rowSelection="multiple"
+        :suppressRowClickSelection="true"
+        @grid-ready="onGridReady"
+        @selection-changed="onSelectionChanged"
+      />
+    </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref, onMounted, computed, nextTick } from 'vue'
@@ -167,12 +177,28 @@ onMounted(() => {
   background-color: #388e3c;
 }
 
-/* 메인 컨테이너 */
+/* 1) 메인 컨테이너가 세로 플렉스 + 풀높이 */
 .container {
+  flex: 1;                     /* content-box 내부일 때도 늘릴 수 있게 */
+  display: flex;
+  flex-direction: column;
+  height: 100%;                /* ★ 핵심 */
   max-width: 1200px;
-  margin: 0.1rem auto; /* 기존 2rem → 1rem */
+  margin: 0.1rem auto;
   padding: 1rem;
   font-family: 'Segoe UI', sans-serif;
+}
+
+/* 2) 그리드 담는 래퍼 */
+.grid-wrapper {
+  flex: 1;                     /* 남은 공간 100 % */
+  min-height: 0;               /* flex 스크롤 버그 방지 */
+}
+
+/* 3) 실제 ag-grid 크기 고정 */
+.full-grid.ag-theme-alpine {
+  height: 100%;
+  width: 100%;
 }
 
 .search-container {

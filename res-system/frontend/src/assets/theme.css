@@ -1,0 +1,12 @@
+/* src/assets/theme.css  ─ 전역 공통 테마 */
+:root {
+  --sky-color:   #87ceeb;  /* 하늘 */
+  --field-color: #3cb043;  /* 잔디 */
+  --flag-color:  #ff3b30;  /* 깃발 */
+  --text-color:  #222222;  /* 기본 글자색 */
+}
+
+/* 중앙 콘텐츠 공통 스타일 */
+.content-box {
+  color: var(--text-color);
+}

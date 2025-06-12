@@ -1,20 +1,15 @@
-<template><div class="g-section" style="display: flex; flex-direction: column; height: 100vh; margin: 0;">
-    <!-- Header 영역 -->
-    <div style="flex: 0 0 15%; padding: 0; margin: 0;">
-      <header-view />
-    </div>
-
-    <!-- 나머지 화면 영역 -->
-    <div style="display: flex; flex: 1 1 auto; padding: 0; margin: 0;">
-      <!-- LeftView -->
-      <div style="flex: 0 0 20%; padding: 0; margin: 0;">
-        <left-view @change-view="updateMainView" />
-      </div>
-
-      <!-- 메인 컴포넌트 영역 -->
-      <div style="flex: 1; background-color: white; padding: 0; margin: 0;">
-        <component :is="currentComponent" />
-      </div>
+<template>
+  <div class="main-section">
+    <!-- Header -->
+    <header-view class="header"/>
+    <!-- Body -->
+    <div class="body">
+      <!-- Sidebar -->
+      <left-view class="sidebar" @change-view="updateMainView"/>
+      <!-- Dynamic main content -->
+      <main class="content-area">
+        <component :is="currentComponent" class="content-box"/>
+      </main>
     </div>
   </div>
 </template>
@@ -44,16 +39,18 @@ export default {
         return;
       }
 
+      // 동적 import & lazy loading
       if (route.components?.default && typeof route.components.default === 'function') {
         this.currentComponent = defineAsyncComponent(route.components.default);
       } else {
         console.warn('컴포넌트 정보가 없습니다:', route);
       }
     },
-    initViewFromQuery() { // URL 쿼리에서 view 파라미터를 읽어와서 초기 컴포넌트 설정
-      const viewName = this.$route.query.view;
-      if (viewName) {
-        this.updateMainView(viewName);
+    // URL 쿼리로 직접 접근 시 동기화
+    initViewFromQuery() {
+      const { view } = this.$route.query;
+      if (view) {
+        this.updateMainView(view);
       }
     }
   },
@@ -68,5 +65,49 @@ export default {
     }
   }
 };
-
 </script>
+
+<style scoped>
+.main-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  background: linear-gradient(to bottom, var(--sky-color) 0% 45%, var(--field-color) 45% 100%);
+  color: var(--text-color);
+}
+
+/* Header 영역 */
+.header {
+  flex: 0 0 64px;
+}
+
+/* Body(사이드바 + 콘텐츠) */
+.body {
+  display: flex;
+  flex: 1;
+}
+
+/* Sidebar */
+.sidebar {
+  flex: 0 0 240px;
+}
+
+/* 중앙 콘텐츠 영역 */
+.content-area {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+/* 각 콘텐츠 뷰 box 공통 스타일 */
+.content-box {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 16px;
+  padding: 24px;
+  min-height: calc(100% - 48px); /* 여백 고려 */
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+</style>

@@ -49,7 +49,7 @@
     <!-- Comments -->
     <CommentsView
       :currentJointData="currentJointData"
-      :analysisId="analysisId"
+      :analysis_id="analysis_id"
       class="u-card comments-block"
     />
   </div>
@@ -103,7 +103,7 @@ watch(() => currentFrameIndex.value, n => {
 })
 
 const svu = ref('')
-const analysisId = computed(() => `${store.state.store_userid1}_${svu.value}`)
+const analysis_id = computed(() => `${store.state.store_userid1}_${svu.value}`)
 
 onMounted(async() => {
   result.value = route.query.result || ''

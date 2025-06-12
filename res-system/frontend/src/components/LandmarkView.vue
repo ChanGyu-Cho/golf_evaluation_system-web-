@@ -1,6 +1,7 @@
-<!-- src/components/LandmarkInfo.vue -->
-<template><div class="g-section">
-    <!-- 선택박스 -->
+<!-- src/components/LandmarkView.vue -->
+<template>
+  <div class="landmark-wrapper g-section">
+    <!-- ── 관절 선택 ───────────────────────────── -->
     <div class="selector-container" v-if="jointKeys.length">
       <label for="jointSelect">관절 선택:</label>
       <select id="jointSelect" v-model="selectedJointLocal">
@@ -11,34 +12,45 @@
       </select>
     </div>
 
-    <!-- 현재 프레임의 관절 각도 및 COM -->
-    <div v-if="currentJointData" class="joint-data-viewer">
-      <h3>프레임: {{ currentJointData.frame }}</h3>
-      <div v-if="!selectedJointLocal">
+    <!-- ── 현재 프레임 각도 / COM ──────────────── -->
+    <div v-if="currentJointData">
+      <!-- 전체 보기 -->
+      <div v-if="!selectedJointLocal" class="joint-list scroll-area">
         <div
           v-for="[key, value] in filteredJointData"
           :key="key"
-          class="joint-item"
+          class="joint-badge"
         >
-          {{ koreanJointNameMap[key] || key }}:
-          {{ (typeof value === 'number' && !isNaN(value)) ? value.toFixed(2) : '-' }}
+          <span>{{ koreanJointNameMap[key] || key }}</span>
+          <strong>
+            {{ (typeof value === 'number' && !isNaN(value)) ? value.toFixed(1) : '-' }}
+          </strong>
         </div>
       </div>
-      <div v-else>
-        <div class="joint-item">
-          {{ koreanJointNameMap[selectedJointLocal] || selectedJointLocal }}:
+
+      <!-- 단일 관절 -->
+      <div v-else class="joint-highlight">
+        <span class="frame-info">Frame: {{ currentJointData.frame }}</span>
+        <span class="joint-name">
+          {{ koreanJointNameMap[selectedJointLocal] || selectedJointLocal }}
+        </span>
+        <span class="joint-value">
           {{
-            (typeof currentJointData[selectedJointLocal] === 'number' && !isNaN(currentJointData[selectedJointLocal]))
+            (typeof currentJointData[selectedJointLocal] === 'number' &&
+              !isNaN(currentJointData[selectedJointLocal]))
               ? currentJointData[selectedJointLocal].toFixed(2)
               : '-'
           }}
-        </div>
+        </span>
       </div>
     </div>
 
-    <!-- 차트 -->
-    <div v-if="jointData.length" class="chart-container">
-      <canvas ref="chartRef" width="800" height="200"></canvas>
+    <!-- ── 차트 ────────────────────────────────── -->
+    <div
+      v-if="jointData && jointData.length"
+      class="chart-container u-card"
+    >
+      <canvas ref="chartRef" height="160"></canvas>
     </div>
   </div>
 </template>
@@ -48,226 +60,177 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { defineProps, defineEmits } from 'vue'
 import Chart from 'chart.js/auto'
 
-// Props: jointData, currentJointData, koreanJointNameMap, modelValue for selectedJoint
+/* ===== Props & v-model ===== */
 const props = defineProps({
   jointData: { type: Array, required: true },
   currentJointData: { type: Object, required: false },
   koreanJointNameMap: { type: Object, required: true },
-  comStabilityScores: { type: Array, default: () => [] }, // 추가
+  comStabilityScores: { type: Array, default: () => [] },
   modelValue: { type: String, default: '' },
 })
-
 const emit = defineEmits(['update:modelValue'])
 
-// local selectedJoint to sync with parent via v-model:selectedJoint
+/* ===== 상태 ===== */
 const selectedJointLocal = ref(props.modelValue)
-watch(() => props.modelValue, v => {
-  selectedJointLocal.value = v
-})
-watch(selectedJointLocal, v => {
-  emit('update:modelValue', v)
-})
+watch(() => props.modelValue, v => (selectedJointLocal.value = v))
+watch(selectedJointLocal, v => emit('update:modelValue', v))
 
-// computed: combinedData is just jointData here
 const combinedData = computed(() => props.jointData || [])
+const jointData = combinedData          // 템플릿 호환
 
-// jointKeys: 첫 프레임 키 목록 (frame 제외)
-const jointKeys = computed(() => {
-  if (!combinedData.value.length) return []
-  return Object.keys(combinedData.value[0]).filter(k => k !== 'frame')
-})
+const jointKeys = computed(() =>
+  combinedData.value.length
+    ? Object.keys(combinedData.value[0]).filter(k => k !== 'frame')
+    : []
+)
 
-// filteredJointData: 현재 프레임 데이터의 [key,value] 쌍 (frame 제외)
-const filteredJointData = computed(() => {
-  if (!props.currentJointData) return []
-  return Object.entries(props.currentJointData).filter(([key]) => key !== 'frame')
-})
+const filteredJointData = computed(() =>
+  props.currentJointData
+    ? Object.entries(props.currentJointData).filter(([k]) => k !== 'frame')
+    : []
+)
 
-
-// 차트 관련
+/* ===== Chart ===== */
 const chartRef = ref(null)
 let chartInstance = null
 
-function initChart() {
+const palette = i => `hsl(${i * 45 % 360} 70% 55%)`
+
+function drawChart () {
   if (!chartRef.value || !combinedData.value.length) return
 
   const labels = combinedData.value.map(d => d.frame)
-  let datasets = []
+  const ds = []
 
+  /* COM 안정성 */
   if (selectedJointLocal.value === 'com_stability_score') {
-    // ✅ COM 안정성 지표 차트
-    const stabilityLabels = props.comStabilityScores.map(d => d.frame)
-    const stabilityData = props.comStabilityScores.map(d => d.score)
-
-    datasets.push({
-      label: 'COM 안정성 지표',
-      data: stabilityData,
-      borderColor: 'orange',
-      backgroundColor: 'rgba(255,165,0,0.2)',
-      fill: true,
+    ds.push({
+      label: 'COM 안정성',
+      data: props.comStabilityScores.map(d => d.score),
+      borderColor: palette(3),
+      backgroundColor: 'rgba(255,165,0,0.25)',
+      tension: 0.4,
       pointRadius: 0,
       borderWidth: 2,
+      fill: true,
       spanGaps: true,
     })
-
-    chartInstance?.destroy()
-    chartInstance = new Chart(chartRef.value.getContext('2d'), {
-      type: 'line',
-      data: { labels: stabilityLabels, datasets },
-      options: {
-        responsive: true,
-        animation: false,
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: '프레임',
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: 'COM 안정성 score (0에 가까울수록 안정)',
-            }
-          }
-        },
-        plugins: {
-          legend: { display: true },
-          tooltip: { mode: 'index', intersect: false },
-        }
-      },
-      plugins: [highlightPlugin()]
-    })
-    return
   }
-
-  // ✅ 기존 joint chart 로직
-  if (selectedJointLocal.value) {
-    const data = combinedData.value.map(d => {
-      const v = d[selectedJointLocal.value]
-      return (typeof v === 'number' ? v : null)
-    })
-    datasets.push({
-      label: props.koreanJointNameMap[selectedJointLocal.value] || selectedJointLocal.value,
-      data,
-      borderColor: 'blue',
-      backgroundColor: 'rgba(0,0,255,0.2)',
-      fill: true,
+  /* 단일 관절 */
+  else if (selectedJointLocal.value) {
+    const k = selectedJointLocal.value
+    ds.push({
+      label: props.koreanJointNameMap[k] || k,
+      data: combinedData.value.map(d => d[k]),
+      borderColor: palette(1),
+      backgroundColor: 'rgba(72,149,239,0.25)',
+      tension: 0.4,
       pointRadius: 0,
       borderWidth: 2,
       spanGaps: true,
     })
-  } else {
-    jointKeys.value.forEach((key, idx) => {
-      const data = combinedData.value.map(d => {
-        const v = d[key]
-        return (typeof v === 'number' ? v : null)
-      })
-      datasets.push({
-        label: props.koreanJointNameMap[key] || key,
-        data,
-        borderColor: `hsl(${(idx * 50) % 360}, 70%, 50%)`,
-        fill: false,
+  }
+  /* 전체 */
+  else {
+    jointKeys.value.forEach((k, i) => {
+      ds.push({
+        label: props.koreanJointNameMap[k] || k,
+        data: combinedData.value.map(d => d[k]),
+        borderColor: palette(i),
+        tension: 0.35,
         pointRadius: 0,
         spanGaps: true,
+        fill: false,
       })
     })
   }
 
   chartInstance?.destroy()
-  chartInstance = new Chart(chartRef.value.getContext('2d'), {
+  chartInstance = new Chart(chartRef.value, {
     type: 'line',
-    data: { labels, datasets },
+    data: { labels, datasets: ds },
     options: {
       responsive: true,
       animation: false,
       scales: {
-        x: {
-          title: {
-            display: true,
-            text: '프레임',
-          }
-        },
-        y: {
-          title: {
-            display: true,
-            text: selectedJointLocal.value && selectedJointLocal.value.startsWith('com_')
-              ? '무게중심 좌표 값 (0~1)'
-              : '각도 (도)',
-          }
-        }
+        x: { grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'Frame' } },
+        y: { grid: { color: 'rgba(0,0,0,0.05)' } },
       },
       plugins: {
-        legend: { display: true },
+        legend: { position: 'bottom', labels: { padding: 12 } },
         tooltip: { mode: 'index', intersect: false },
       }
-    },
-    plugins: [highlightPlugin()]
+    }
   })
 }
 
-// 하이라이트 플러그인 재사용
-function highlightPlugin() {
-  return {
-    id: 'chartHighlightPlugin',
-    afterDraw(chart) {
-      if (!chartInstance) return
-      if (!props.currentJointData) return
-      const ctx = chart.ctx
-      const xScale = chart.scales.x
-      const frame = props.currentJointData.frame
-      const x = xScale.getPixelForValue(frame)
-      ctx.save()
-      ctx.beginPath()
-      ctx.strokeStyle = 'red'
-      ctx.lineWidth = 2
-      ctx.moveTo(x, chart.chartArea.top)
-      ctx.lineTo(x, chart.chartArea.bottom)
-      ctx.stroke()
-      ctx.restore()
-    }
-  }
-}
-
-
-// jointData 또는 selectedJoint 변경 시 차트 업데이트
-watch([() => combinedData.value, selectedJointLocal], () => {
-  initChart()
-}, { immediate: true })
-
-// currentJointData 변경 시 차트 리프레시 (highlight 이동)
-watch(() => props.currentJointData, () => {
-  if (chartInstance) {
-    chartInstance.update('none')
-  }
-})
-
-onMounted(() => {
-  initChart()
-})
+/* ===== Watchers ===== */
+watch([combinedData, selectedJointLocal], drawChart, { immediate: true })
+watch(() => props.currentJointData, () => chartInstance?.update('none'))
+onMounted(drawChart)
 </script>
 
 <style scoped>
+/* 공통 스크롤 제한 */
+.scroll-area { max-height: 260px; overflow-y: auto; }
+
+/* 선택 박스 */
 .selector-container {
-  max-width: 600px;
-  margin: 1rem auto;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  background: var(--panel-bg);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(4px);
+  margin: 0 auto 12px;
+}
+.selector-container select {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: var(--radius-md);
+}
+
+/* 전체 보기 카드형 */
+.joint-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.joint-badge {
+  background: var(--panel-bg);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+/* 단일 관절 하이라이트 */
+.joint-highlight {
+  background: var(--field-color);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 18px 24px;
   text-align: center;
+  box-shadow: var(--shadow-md);
+  font-size: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.joint-data-viewer {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: #f9f9f9;
-  border-radius: 8px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  font-family: monospace;
-}
-.joint-item {
-  margin-bottom: 0.3rem;
-}
+.joint-name   { font-weight: 700; }
+.joint-value  { font-size: 1.6rem; }
+
+/* 차트 컨테이너: 90%/900px & 중앙 */
 .chart-container {
-  max-width: 800px;
-  margin: 1rem auto;
+  width: min(90%, 900px);
+  margin: 0 auto;
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
 }
+/* Canvas 폭 100% */
+.chart-container canvas { width: 100% !important; }
 </style>

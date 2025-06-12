@@ -1,12 +1,54 @@
-/* src/assets/theme.css  ─ 전역 공통 테마 */
+/* src/assets/theme.css ─ 전역 공통 테마 */
 :root {
+  /* 기존 색상 */
   --sky-color:   #87ceeb;  /* 하늘 */
   --field-color: #3cb043;  /* 잔디 */
   --flag-color:  #ff3b30;  /* 깃발 */
   --text-color:  #222222;  /* 기본 글자색 */
+
+  /* ✅ 새로 추가 */
+  --panel-bg:    rgba(255, 255, 255, 0.9);  /* 반투명 카드 배경 */
+  --radius-md:   12px;
+  --radius-lg:   18px;
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-lg:   0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 /* 중앙 콘텐츠 공통 스타일 */
 .content-box {
   color: var(--text-color);
 }
+
+/* ✅ 자주 쓰는 카드 */
+.u-card {
+  background: var(--panel-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 16px;
+}
+
+/* ✅ 버튼 기본형 */
+.u-btn {
+  display: inline-block;
+  padding: 10px 24px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s;
+  color: #fff;
+}
+
+/* 초록 버튼 */
+.u-btn-field {
+  background: var(--field-color);
+}
+.u-btn-field:hover { filter: brightness(0.9); }
+
+/* 빨강 버튼 */
+.u-btn-flag {
+  background: var(--flag-color);
+}
+.u-btn-flag:hover { filter: brightness(0.9); }

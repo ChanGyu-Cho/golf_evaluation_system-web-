@@ -132,3 +132,39 @@ onMounted(() => {
   border-radius: 4px;
 }
 </style>
+
+<style scoped>
+.comments-wrapper {
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  align-items:center;
+}
+.comment-input {
+  width:100%;
+  padding:12px;
+  border:1px solid #ccc;
+  border-radius:var(--radius-md);
+  resize:none;
+}
+.comment-btn {
+  align-self:flex-end;
+  background:var(--flag-color);
+  color:#fff;
+  border:none;
+  padding:8px 20px;
+  border-radius:var(--radius-md);
+  font-weight:600;
+  cursor:pointer;
+  transition:background 0.2s;
+}
+.comment-btn:hover { background:#d93127; }
+.comment-item {
+  width:100%;
+  background:var(--panel-bg);
+  padding:12px;
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-md);
+}
+.timestamp { color:var(--sky-color); font-weight:600; margin-right:6px;}
+</style>

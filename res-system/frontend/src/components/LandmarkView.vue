@@ -162,6 +162,7 @@ function highlightPlugin() {
 
 /* ---------- Chart build / update ---------- */
 function updateChart() {
+  console.log('Updating chart')
   if (!chartRef.value) return
   const { ds, labels } = buildDatasets()
 

@@ -83,7 +83,7 @@ def add_joint_angles_from_csv(df):
             idx = mp_joints[joint_name]
             return [row[f'{axes[0]}_{idx}'], row[f'{axes[1]}_{idx}']]
 
-        # 2D 각도 계산 (y-z 평면)로 변경한 부분
+        # 2D 각도
         frame_angles["left_elbow_flexion"] = calculate_angle_2d([
             get_coords_2d("L_SHOULDER"),
             get_coords_2d("L_ELBOW"),
@@ -104,8 +104,7 @@ def add_joint_angles_from_csv(df):
             get_coords_2d("R_KNEE"),
             get_coords_2d("R_ANKLE"),
         ])
-
-        # 3D 각도 계산 유지 (엉덩이)
+        # 3D 엉덩이
         frame_angles["left_hip_flexion"] = calculate_angle_3d([
             get_coords("L_SHOULDER"),
             get_coords("L_HIP"),
@@ -116,8 +115,7 @@ def add_joint_angles_from_csv(df):
             get_coords("R_HIP"),
             get_coords("R_KNEE"),
         ])
-
-        # 2D 어깨 굽힘 각도 (y-z) 유지
+        # 어깨
         frame_angles["left_shoulder_flexion"] = calculate_angle_2d([
             get_coords_2d("L_HIP"),
             get_coords_2d("L_SHOULDER"),
@@ -128,12 +126,11 @@ def add_joint_angles_from_csv(df):
             get_coords_2d("R_SHOULDER"),
             get_coords_2d("R_ELBOW"),
         ])
-
-        # 골반 기울기 및 회전
+        # 골반 기울기
         frame_angles["pelvis_list"] = row[f'y_{mp_joints["R_HIP"]}'] - row[f'y_{mp_joints["L_HIP"]}']
         frame_angles["pelvis_rotation"] = row[f'x_{mp_joints["R_HIP"]}'] - row[f'x_{mp_joints["L_HIP"]}']
 
-        # COM 계산
+        # COM
         com_coords = [get_coords(j) for j in com_joints]
         com_array = np.array(com_coords)
         com_mean = np.nanmean(com_array, axis=0)
@@ -148,8 +145,7 @@ def add_joint_angles_from_csv(df):
 
     return angle_data
 
-
-# NaN 값을 None으로 변환하는 함수
+# NaN → None
 def replace_nan_with_none(obj):
     if isinstance(obj, float) and math.isnan(obj):
         return None
@@ -160,17 +156,15 @@ def replace_nan_with_none(obj):
     else:
         return obj
 
-
 def csv_to_precomputed_landmark_json(csv_path, json_path, fps):
     df = pd.read_csv(csv_path)
     angle_data = add_joint_angles_from_csv(df)
 
-    # com 필드 삭제
+    # com 제거
     for frame in angle_data:
         if 'com' in frame:
             del frame['com']
 
-    # NaN → None 변환
     clean_data = replace_nan_with_none(angle_data)
 
     output = {
@@ -182,7 +176,6 @@ def csv_to_precomputed_landmark_json(csv_path, json_path, fps):
         json.dump(output, f, indent=2, allow_nan=False)
 
     print(f"Saved JSON: {json_path}")
-
 
 def process_with_skeleton(input_path, output_path, csv_path, json_path):
     mp_drawing = mp.solutions.drawing_utils
@@ -204,7 +197,6 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
         width, height = orig_width, orig_height
 
     fourcc = cv2.VideoWriter_fourcc(*'avc1')
-
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     if not out.isOpened():
         print("VideoWriter failed to open with H.264 codec. Fallback to mp4v")
@@ -242,28 +234,19 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
 
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(image)
-
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+            landmark_coords = []
+
             if results.pose_landmarks:
-                landmark_coords = []
                 for i, landmark in enumerate(results.pose_landmarks.landmark):
-                    x = int(landmark.x * width)
-                    y = int(landmark.y * height)
-                    z = landmark.z
-                    visibility = landmark.visibility
+                    landmark_coords.extend([landmark.x, landmark.y, landmark.z, landmark.visibility])
 
-                    # CSV 저장용 좌표 (실수형 좌표)
-                    landmark_coords.extend([landmark.x, landmark.y, landmark.z, visibility])
-
-                csv_writer.writerow([frame_count] + landmark_coords)
-
-                # 관절 그리기
                 mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
                                           mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=1, circle_radius=1),
                                           mp_drawing.DrawingSpec(color=(0, 255, 255), thickness=2, circle_radius=2))
 
-                # COM 계산 (hip과 shoulder, knee, ankle 8개 점 평균)
+                # COM 계산
                 hip_shoulder_knee_ankle_indices = [mp_joints[j] for j in [
                     "L_HIP", "R_HIP", "L_SHOULDER", "R_SHOULDER",
                     "L_KNEE", "R_KNEE", "L_ANKLE", "R_ANKLE"
@@ -277,13 +260,15 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
                 com_z = np.mean(zs)
                 com_positions.append((com_x, com_y, com_z))
 
-                # COM 화면 좌표 (픽셀)
                 com_px = int(com_x * width)
                 com_py = int(com_y * height)
-
-                # 초록색 원으로 COM 시각화
                 cv2.circle(image, (com_px, com_py), 8, (0, 255, 0), -1)
+            else:
+                # 관절 없는 경우 → NaN 기록 (중요!)
+                for i in range(33):
+                    landmark_coords.extend([float('nan'), float('nan'), float('nan'), float('nan')])
 
+            csv_writer.writerow([frame_count] + landmark_coords)
             out.write(image)
             frame_count += 1
 
@@ -291,20 +276,16 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
     out.release()
     csv_file.close()
 
-    # COM 이동 범위 계산 (평균, 표준편차)
-    com_positions_np = np.array(com_positions)  # (N, 3)
+    com_positions_np = np.array(com_positions)
     if len(com_positions_np) > 0:
         com_mean = np.mean(com_positions_np, axis=0)
         com_std = np.std(com_positions_np, axis=0)
-
         com_range = {
-            'x_range': float(np.ptp(com_positions_np[:, 0])),  # max-min
+            'x_range': float(np.ptp(com_positions_np[:, 0])),
             'y_range': float(np.ptp(com_positions_np[:, 1])),
             'z_range': float(np.ptp(com_positions_np[:, 2])),
         }
-
-        # 안정성 판단 기준 예시 (x,y,z 이동범위가 일정 이하일 경우 안정적)
-        stability_threshold = 0.05  # 임계값 (좌우, 앞뒤, 높이 방향 움직임 범위)
+        stability_threshold = 0.05
         stable = (com_range['x_range'] < stability_threshold and
                   com_range['y_range'] < stability_threshold and
                   com_range['z_range'] < stability_threshold)
@@ -314,28 +295,11 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
         com_range = {'x_range': None, 'y_range': None, 'z_range': None}
         stable = False
 
-    # CSV → JSON 변환 (각도 포함)
     csv_to_precomputed_landmark_json(csv_path, json_path, fps)
 
-    # JSON 파일에 COM 이동범위 및 안정성 정보 추가
     with open(json_path, 'r') as f:
         data = json.load(f)
 
-    data["com_movement"] = {
-        "mean": {"x": com_mean[0], "y": com_mean[1], "z": com_mean[2]},
-        "std": {"x": com_std[0], "y": com_std[1], "z": com_std[2]},
-        "range": com_range,
-        "stable": stable
-    }
-
-    with open(json_path, 'w') as f:
-        json.dump(data, f, indent=2)
-
-    print(f"Processed video saved to: {output_path}")
-    print(f"CSV saved to: {csv_path}")
-    print(f"JSON saved to: {json_path}")
-    
-    # COM 안정성 score 계산 (프레임별)
     com_stability_scores = []
     if len(com_positions_np) > 0:
         for i, (x, y, z) in enumerate(com_positions_np):
@@ -349,23 +313,20 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
                 "score": deviation
             })
 
-    # 기존 json 로드 → com_stability_scores 추가 후 저장
-    with open(json_path, 'r') as f:
-        data = json.load(f)
-
     data["com_movement"] = {
         "mean": {"x": com_mean[0], "y": com_mean[1], "z": com_mean[2]},
         "std": {"x": com_std[0], "y": com_std[1], "z": com_std[2]},
         "range": com_range,
         "stable": stable
     }
-
     data["com_stability_scores"] = com_stability_scores
 
     with open(json_path, 'w') as f:
         json.dump(data, f, indent=2)
 
-
+    print(f"Processed video saved to: {output_path}")
+    print(f"CSV saved to: {csv_path}")
+    print(f"JSON saved to: {json_path}")
 
 if __name__ == "__main__":
     input_video_path = sys.argv[1]

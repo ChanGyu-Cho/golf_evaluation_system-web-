@@ -2,6 +2,7 @@
 
 스켈레톤 시각화, 프레임별 속도 동기화 그래프 표시, 코멘트 기능들을 사용자에게 제공하는 vue3+java+python 구조의 풀스택 시스템 입니다.
 
+
 This is a full-stack system built with Vue 3 (frontend), Java (backend), and Python (for specific functionalities). It allows users to upload golf videos.
 
 The system processes these videos by inputting them into a binary classification evaluation model, trained with a basic CNN (Convolutional Neural Network) + GRU (Gated Recurrent Unit) architecture, to display the classification results.

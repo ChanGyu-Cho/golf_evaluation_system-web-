@@ -30,7 +30,7 @@ public class CommentsController {
     public ResponseEntity<?> addTag(@RequestBody AnalysisTagDto dto) {
         Timestamp now = Timestamp.valueOf(LocalDateTime.now());
 
-        String insertSql = "INSERT INTO analysis_tag (userid, analysis_id, frame_index, tag, memo, timestamp_sec) " +
+        String insertSql = "INSERT INTO comment (userid, analysis_id, frame_index, tag, memo, timestamp_sec) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";
         Query query = entityManager.createNativeQuery(insertSql);
         query.setParameter(1, dto.getUserId());
@@ -50,7 +50,7 @@ public class CommentsController {
 
         String sql =
                 "SELECT userid, analysis_id, frame_index, tag, memo, timestamp_sec " +
-                        "FROM analysis_tag " +
+                        "FROM comment " +
                         "WHERE analysis_id REGEXP CONCAT('^', ?, '_[0-9]+$') " +
                         "ORDER BY frame_index ASC";
 
@@ -81,7 +81,7 @@ public class CommentsController {
     @Transactional
     @DeleteMapping("/delete/{analysis_id}")
     public ResponseEntity<?> deleteTag(@PathVariable String analysis_id) {
-        String deleteSql = "DELETE FROM analysis_tag WHERE analysis_id = ?";
+        String deleteSql = "DELETE FROM comment WHERE analysis_id = ?";
         Query query = entityManager.createNativeQuery(deleteSql);
         query.setParameter(1, analysis_id);
         int deletedCount = query.executeUpdate();
@@ -97,7 +97,7 @@ public class CommentsController {
     @Transactional
     @DeleteMapping("/allDelete/{analysis_id}")
     public ResponseEntity<?> allDeleteTag(@PathVariable String analysis_id) {
-        String deleteSql = "DELETE FROM analysis_tag " +
+        String deleteSql = "DELETE FROM comment " +
                 "WHERE analysis_id REGEXP CONCAT('^', ?, '_[0-9]+$') ";
         Query query = entityManager.createNativeQuery(deleteSql);
         query.setParameter(1, analysis_id);

@@ -35,7 +35,7 @@ public class FilePythonController {
     @PostMapping("/upload")
     @Transactional
     public ResponseEntity<?> handleVideoUpload(@RequestParam("file") MultipartFile file,
-                                               @RequestParam("userid") int userId) {
+                                               @RequestParam("userid") String userId) {
         try {
             String originalFilename = file.getOriginalFilename();
             String prefixedFilename = userId + "_" + originalFilename;
@@ -54,7 +54,7 @@ public class FilePythonController {
             // 현재 시간 생성
             Timestamp uploadTime = Timestamp.valueOf(LocalDateTime.now());
 
-            String insertSql = "INSERT INTO basvid (userid, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
+            String insertSql = "INSERT INTO video (userid, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
             Query insertQuery = entityManager.createNativeQuery(insertSql);
             insertQuery.setParameter(1, userId);
             insertQuery.setParameter(2, uniqueFilename);
@@ -95,7 +95,7 @@ public class FilePythonController {
 
     // Python 분류 모델 실행 후 stdout에서 결과 읽기
     private String runPythonModel(String inputPath) throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder("python", "E:/resVue/resPy/classify_video.py", inputPath);
+        ProcessBuilder pb = new ProcessBuilder("python", "E:/golf_evaluation_system-web-/resPy/classify_video.py", inputPath);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -130,7 +130,7 @@ public class FilePythonController {
 
         ProcessBuilder pb = new ProcessBuilder(
                 "python",
-                "E:/resVue/resPy/skeleton_video.py",
+                "E:/golf_evaluation_system-web-/resPy/skeleton_video.py",
                 inputPath,
                 outputPath,
                 csvFullPath,

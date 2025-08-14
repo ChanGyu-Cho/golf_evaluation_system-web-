@@ -30,7 +30,7 @@ public class idManageController {
         log.info("userid: {}", userid);
         log.info("password: {}", userpass);
 
-        String sql = "SELECT * FROM basemp WHERE userid = ? AND userpass = ?";
+        String sql = "SELECT * FROM user_info WHERE userid = ? AND userpass = ?";
         try {
             // 네이티브 쿼리 생성
             Query query = entityManager.createNativeQuery(sql);
@@ -67,7 +67,7 @@ public class idManageController {
         log.info("username: {}", username);
 
         // username이 null이거나 빈 문자열일 경우 전체 데이터를 반환
-        String sql = "SELECT * FROM basemp WHERE username LIKE ?";
+        String sql = "SELECT * FROM user_info WHERE username LIKE ?";
 
         try {
             // 네이티브 쿼리 생성
@@ -114,7 +114,7 @@ public class idManageController {
         log.info("userid: {}", userid);
 
         // userid이 null이거나 빈 문자열일 경우 전체 데이터를 반환
-        String sql = "SELECT * FROM basemp WHERE userid LIKE ?";
+        String sql = "SELECT * FROM user_info WHERE userid LIKE ?";
 
         try {
             // 네이티브 쿼리 생성
@@ -168,7 +168,7 @@ public class idManageController {
         log.info("usermail: {}", usermail);
 
         // 먼저 userid가 이미 존재하는지 확인
-        String sql = "SELECT * FROM basemp WHERE userid = ?";
+        String sql = "SELECT * FROM user_info WHERE userid = ?";
         try {
             // 네이티브 쿼리 생성
             Query query = entityManager.createNativeQuery(sql);
@@ -183,7 +183,7 @@ public class idManageController {
             }
 
             // userid가 존재하지 않으면 INSERT 쿼리 실행
-            String insertSql = "INSERT INTO basemp (userid, userpass, username, usermail) VALUES (?, ?, ?, ?)";
+            String insertSql = "INSERT INTO user_info (userid, userpass, username, usermail) VALUES (?, ?, ?, ?)";
             Query insertQuery = entityManager.createNativeQuery(insertSql);
             insertQuery.setParameter(1, userid);
             insertQuery.setParameter(2, userpass);
@@ -211,7 +211,7 @@ public class idManageController {
             return ResponseEntity.ok("admin은 삭제할 수 없습니다");
         }
 
-        String sql = "DELETE FROM basemp WHERE userid IN (:ids)";   // :로 바인드 파라미터 사용, ?는 순서기반, :는 이름 기반이다
+        String sql = "DELETE FROM user_info WHERE userid IN (:ids)";   // :로 바인드 파라미터 사용, ?는 순서기반, :는 이름 기반이다
         try {
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter("ids", userIds); // :ids에 userIds 리스트를 넣음, IN 명령어를 통해 list에 해당하면 삭제
@@ -239,7 +239,7 @@ public class idManageController {
         log.info("username: {}", username);
         log.info("usermail: {}", usermail);
 
-        String sql = "SELECT * FROM basemp WHERE userid = ?";
+        String sql = "SELECT * FROM user_info WHERE userid = ?";
         try {
             Query query = entityManager.createNativeQuery(sql);
             query.setParameter(1, userid);
@@ -249,7 +249,7 @@ public class idManageController {
                 return ResponseEntity.ok("사용자가 존재하지 않습니다.");
             }
 
-            String updateSql = "UPDATE basemp SET userpass = ?, username = ?, usermail = ? WHERE userid = ?";
+            String updateSql = "UPDATE user_info SET userpass = ?, username = ?, usermail = ? WHERE userid = ?";
             Query updateQuery = entityManager.createNativeQuery(updateSql);
             updateQuery.setParameter(1, userpass);
             updateQuery.setParameter(2, username);

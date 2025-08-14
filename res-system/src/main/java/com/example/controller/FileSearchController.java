@@ -53,11 +53,11 @@ public class FileSearchController {
         try {
             if (userIdStr.equalsIgnoreCase("admin")) {
                 // admin일 경우 전체 조회
-                sql = "SELECT userid, vid_name, eval, upload_date FROM basvid";
+                sql = "SELECT userid, vid_name, eval, upload_date FROM video";
                 query = entityManager.createNativeQuery(sql);
             } else {
                 // 특정 사용자만 조회
-                sql = "SELECT userid, vid_name, eval, upload_date FROM basvid WHERE userid = ?";
+                sql = "SELECT userid, vid_name, eval, upload_date FROM video WHERE userid = ?";
                 query = entityManager.createNativeQuery(sql);
                 query.setParameter(1, Integer.parseInt(userIdStr));
             }
@@ -99,7 +99,7 @@ public class FileSearchController {
                 return ResponseEntity.badRequest().body(Map.of("message", "삭제할 항목이 없습니다."));
             }
 
-            Path basePath = Paths.get(baseDir);  // baseDir은 예: "E:\\resVue\\resPy\\uploaded-videos"
+            Path basePath = Paths.get(baseDir);  // baseDir은 예: "E:\\golf_evaluation_system-web-\\resPy\\uploaded-videos"
 
             for (Map<String, Object> item : deleteList) {
                 String userIdStr = String.valueOf(item.get("userid"));
@@ -109,7 +109,7 @@ public class FileSearchController {
                     continue;
                 }
 
-                String sql = "DELETE FROM basvid WHERE userid = ? AND vid_name = ?";
+                String sql = "DELETE FROM video WHERE userid = ? AND vid_name = ?";
                 Query query = entityManager.createNativeQuery(sql);
                 query.setParameter(1, Integer.parseInt(userIdStr));
                 query.setParameter(2, vidName);

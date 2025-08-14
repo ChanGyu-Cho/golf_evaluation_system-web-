@@ -25,7 +25,8 @@ import java.sql.Timestamp;
 @CrossOrigin
 @RequestMapping("/images")
 public class FilePythonController {
-    private static final Logger log = LoggerFactory.getLogger(FilePythonController.class);  // ✅ 여기가 핵심
+    private static final Logger log = LoggerFactory.getLogger(FilePythonController.class);
+
     @Autowired
     private EntityManager entityManager;
 
@@ -47,11 +48,12 @@ public class FilePythonController {
             String skeletonFilename = "skeleton_" + uniqueFilename;
             File skeletonOutput = new File(uploadDir, skeletonFilename);
 
+            // 스켈레톤 처리: 절대경로 전달 유지
             runSkeletonVideoProcessor(savedFile.getAbsolutePath(), skeletonOutput.getAbsolutePath());
 
-            int rawResult = Integer.parseInt(runPythonModel(savedFile.getAbsolutePath()));
+            // 분류기는 파일 "이름"만 전달 (파이썬이 업로드 디렉토리 붙임)
+            int rawResult = runPythonModel(uniqueFilename);
 
-            // 현재 시간 생성
             Timestamp uploadTime = Timestamp.valueOf(LocalDateTime.now());
 
             String insertSql = "INSERT INTO video (userid, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
@@ -59,25 +61,17 @@ public class FilePythonController {
             insertQuery.setParameter(1, userId);
             insertQuery.setParameter(2, uniqueFilename);
             insertQuery.setParameter(3, rawResult);
-            insertQuery.setParameter(4, uploadTime);  // 현재 시간 추가
+            insertQuery.setParameter(4, uploadTime);
             insertQuery.executeUpdate();
 
-
-            String classifyResult;
-            if (1 == rawResult) {
-                classifyResult = "Good";
-            } else if (0 == rawResult) {
-                classifyResult = "Bad";
-            } else {
-                classifyResult = "unknown";
-            }
+            String classifyResult = (rawResult == 1) ? "Good" : (rawResult == 0 ? "Bad" : "unknown");
 
             return ResponseEntity.ok().body(new VideoResponse(
                     classifyResult,
                     skeletonFilename
             ));
         } catch (Exception e) {
-            log.info("파일 업로드 실패: ", e);
+            log.error("파일 업로드 실패: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("업로드 실패");
         }
     }
@@ -92,50 +86,84 @@ public class FilePythonController {
         }
     }
 
-
-    // Python 분류 모델 실행 후 stdout에서 결과 읽기
-    private String runPythonModel(String inputPath) throws IOException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder("python", "E:/golf_evaluation_system-web-/resPy/classify_video.py", inputPath);
-        pb.redirectErrorStream(true);
+    // Python 분류 모델 실행 (stderr 분리, exit code 체크, 안전 파싱)
+    private int runPythonModel(String videoFilename) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(
+                "python",
+                "D:/golf_evaluation_system-web-/resPy/classify_video.py",
+                videoFilename
+        );
+        // stderr를 stdout으로 합치지 않음
         Process process = pb.start();
 
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String rawResult = reader.readLine();
+        StringBuilder outBuf = new StringBuilder();
+        StringBuilder errBuf = new StringBuilder();
 
-        process.waitFor();
-        reader.close();
-        return rawResult;   // 숫자 라벨 0은 bad, 1은 good
+        Thread outThread = new Thread(() -> {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) outBuf.append(line).append('\n');
+            } catch (IOException ignored) {}
+        });
+        Thread errThread = new Thread(() -> {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) errBuf.append(line).append('\n');
+            } catch (IOException ignored) {}
+        });
+
+        outThread.start();
+        errThread.start();
+
+        int exit = process.waitFor();
+        outThread.join();
+        errThread.join();
+
+        String stdout = outBuf.toString().trim();
+        String stderr = errBuf.toString().trim();
+
+        if (exit != 0) {
+            throw new IOException("Python classify failed (exit=" + exit + "): " + stderr);
+        }
+
+        // stdout의 마지막 라인에서 0/1만 추출 ("RESULT: 1" 형태도 허용)
+        String[] lines = stdout.split("\\R");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String s = lines[i].trim();
+            if (s.matches("^[01]$")) return Integer.parseInt(s);
+            if (s.matches(".*\\b[01]\\b.*")) {
+                String digit = s.replaceAll(".*\\b([01])\\b.*", "$1");
+                return Integer.parseInt(digit);
+            }
+        }
+        throw new IOException("No numeric result in Python stdout. stdout=[" + stdout + "], stderr=[" + stderr + "]");
     }
 
-    // runSkeletonVideoProcessor 수정 (jsonPath 인자 추가 및 리턴)
+    // 스켈레톤 처리 (stderr/stdout 로그 출력, 실패 시 예외)
     private String runSkeletonVideoProcessor(String inputPath, String outputPath) throws IOException, InterruptedException {
-        // outputPath: "uploaded-videos/파일명.mp4" 라고 가정
-
         String baseName = new File(outputPath).getName();
         String baseNameNoExt = baseName.contains(".") ? baseName.substring(0, baseName.lastIndexOf('.')) : baseName;
 
-        // relative path from uploaded-videos
         String csvRelPath = "landmarkFiles/" + baseNameNoExt + ".csv";
         String jsonRelPath = "landmarkFiles/" + baseNameNoExt + ".json";
 
-        // landmarkFiles 폴더 존재 여부 확인 및 생성 (uploaded-videos/landmarkFiles)
         File landmarkDir = new File(uploadDir, "landmarkFiles");
         if (!landmarkDir.exists()) {
             landmarkDir.mkdirs();
         }
 
-        // 실제 파일 경로 (절대 경로) 필요시, uploadDir 기준으로 합침
         String csvFullPath = new File(uploadDir, csvRelPath).getAbsolutePath();
         String jsonFullPath = new File(uploadDir, jsonRelPath).getAbsolutePath();
 
         ProcessBuilder pb = new ProcessBuilder(
                 "python",
-                "E:/golf_evaluation_system-web-/resPy/skeleton_video.py",
+                "D:/golf_evaluation_system-web-/resPy/skeleton_video.py",
                 inputPath,
                 outputPath,
                 csvFullPath,
                 jsonFullPath
         );
+        // 스켈레톤 처리 로그는 합쳐서 한 스트림으로 출력
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
@@ -151,10 +179,8 @@ public class FilePythonController {
             throw new IOException("Skeleton video processor exited with code " + exitCode);
         }
 
-        return jsonRelPath;  // 프론트엔드로 넘겨줄 URL 경로는 상대경로로!
+        return jsonRelPath;
     }
-
-
 
     private String getUniqueFilename(String directory, String filename) {
         File file = new File(directory, filename);
@@ -168,8 +194,6 @@ public class FilePythonController {
             file = new File(directory, name);
             counter++;
         }
-
         return name;
     }
-
 }

@@ -99,7 +99,7 @@ public class FileSearchController {
                 return ResponseEntity.badRequest().body(Map.of("message", "삭제할 항목이 없습니다."));
             }
 
-            Path basePath = Paths.get(baseDir);  // baseDir은 예: "E:\\golf_evaluation_system-web-\\resPy\\uploaded-videos"
+            Path basePath = Paths.get(baseDir);  // baseDir은 예: "D:\\golf_evaluation_system-web-\\resPy\\uploaded-videos"
 
             for (Map<String, Object> item : deleteList) {
                 String userIdStr = String.valueOf(item.get("userid"));

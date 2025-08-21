@@ -134,6 +134,25 @@ def openpose_skeleton_overlay(
         if not ret or frame_idx >= len(df):
             break
         keypoints = get_keypoints(frame_idx)
+        # compute COM from available keypoints (hip/shoulder/knee/ankle set)
+        try:
+            # indices in COCO order for hips, shoulders, knees, ankles
+            com_indices = [11, 12, 5, 6, 13, 14, 15, 16]
+            com_pts = []
+            for ci in com_indices:
+                kp = keypoints[ci]
+                if kp[0] < 0 or kp[1] < 0:
+                    continue
+                com_pts.append(kp)
+            if com_pts:
+                arr = np.array(com_pts, dtype=float)
+                com_xy = arr.mean(axis=0)
+                com_pt = (int(com_xy[0]), int(com_xy[1]))
+                # draw a slightly larger filled circle for COM
+                cv2.circle(frame, com_pt, 6, (0, 255, 0), -1)
+        except Exception:
+            # don't fail overlay if COM computation fails
+            pass
         # If user mapping is provided, draw in user-index space
         if hasattr(openpose_skeleton_overlay, '_user_connections') and openpose_skeleton_overlay._user_connections is not None:
             # build user_kp array from coco-ordered keypoints

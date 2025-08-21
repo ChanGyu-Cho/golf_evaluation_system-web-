@@ -252,15 +252,66 @@ def replace_nan_with_none(obj):
         return obj
 
 def save_angle_json(csv_path, out_json_path, fps=30):
-    df = pd.read_csv(csv_path)
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        print(f"[ERROR] Failed to read CSV {csv_path}: {e}")
+        raise
+
+    # coerce all columns to numeric where possible to avoid numpy ufunc type errors
+    try:
+        df = df.apply(lambda col: pd.to_numeric(col, errors='coerce'))
+    except Exception as e:
+        print(f"[WARN] Failed to coerce CSV columns to numeric: {e}")
     angle_data = []
     com_positions = []
-    for i, row in df.iterrows():
-        frame_angles = {"frame": i}
-        def get2d(j):
-            return (row.get(f"x_{COCO_IDX[j]}", np.nan), row.get(f"y_{COCO_IDX[j]}", np.nan))
-        def get3d(j):
-            return [row.get(f"x_{COCO_IDX[j]}", np.nan), row.get(f"y_{COCO_IDX[j]}", np.nan), row.get(f"z_{COCO_IDX[j]}", np.nan)]
+    # Use the CSV 'frame' column when present so we preserve original video frame indices
+    # detect CSV column format: OpenPose uses name_x/name_y/name_c, previous pipeline used x_0,y_0,z_0 style
+    cols = set(df.columns)
+    use_name_cols = any(f"{name}_x" in cols for name in COCO_KP)
+
+    def safe_num(v):
+        try:
+            return float(v)
+        except Exception:
+            return np.nan
+
+    for _, row in df.iterrows():
+        # normalize frame value (may be string in some CSVs)
+        frame_num = None
+        if 'frame' in df.columns and not pd.isna(row.get('frame', None)):
+            try:
+                frame_num = int(safe_num(row.get('frame')))
+            except Exception:
+                frame_num = None
+        frame_angles = {"frame": frame_num}
+        if use_name_cols:
+            def get2d(j):
+                # coerce to numeric; return (x,y) floats or (np.nan,np.nan)
+                x = safe_num(row.get(f"{j}_x", np.nan))
+                y = safe_num(row.get(f"{j}_y", np.nan))
+                return (x, y)
+            def get3d(j):
+                # OpenPose CSV typically has x,y,confidence but no z; return nan for z
+                x = safe_num(row.get(f"{j}_x", np.nan))
+                y = safe_num(row.get(f"{j}_y", np.nan))
+                return [x, y, np.nan]
+        else:
+            def get2d(j):
+                # fall back to index-based columns like x_0, y_0
+                colx = f"x_{COCO_IDX[j]}"
+                coly = f"y_{COCO_IDX[j]}"
+                x = safe_num(row.get(colx, np.nan))
+                y = safe_num(row.get(coly, np.nan))
+                return (x, y)
+            def get3d(j):
+                colx = f"x_{COCO_IDX[j]}"
+                coly = f"y_{COCO_IDX[j]}"
+                colz = f"z_{COCO_IDX[j]}"
+                x = safe_num(row.get(colx, np.nan))
+                y = safe_num(row.get(coly, np.nan))
+                z = safe_num(row.get(colz, np.nan))
+                return [x, y, z]
 
         # 각도 계산 (COCO17 기준)
         frame_angles["left_elbow_flexion"] = calculate_angle_2d([
@@ -288,9 +339,19 @@ def save_angle_json(csv_path, out_json_path, fps=30):
             get2d("RHip"), get2d("RShoulder"), get2d("RElbow")
         ])
 
-        # 골반 기울기 및 회전
-        frame_angles["pelvis_list"] = row.get(f'y_{COCO_IDX["RHip"]}', np.nan) - row.get(f'y_{COCO_IDX["LHip"]}', np.nan)
-        frame_angles["pelvis_rotation"] = row.get(f'x_{COCO_IDX["RHip"]}', np.nan) - row.get(f'x_{COCO_IDX["LHip"]}', np.nan)
+        # 골반 기울기 및 회전 (use get2d to support both CSV formats)
+        rh_x, rh_y = get2d("RHip")
+        lh_x, lh_y = get2d("LHip")
+        try:
+            p_list = safe_num(rh_y) - safe_num(lh_y)
+        except Exception:
+            p_list = np.nan
+        try:
+            p_rot = safe_num(rh_x) - safe_num(lh_x)
+        except Exception:
+            p_rot = np.nan
+        frame_angles["pelvis_list"] = p_list
+        frame_angles["pelvis_rotation"] = p_rot
 
         # COM (8개 점 평균)
         com_joints = ["LHip", "RHip", "LShoulder", "RShoulder", "LKnee", "RKnee", "LAnkle", "RAnkle"]
@@ -307,30 +368,170 @@ def save_angle_json(csv_path, out_json_path, fps=30):
         com_positions.append(com_mean)
         angle_data.append(frame_angles)
 
-    # NaN → None 변환
+    # NaN → None 변환 (initial)
     clean_data = replace_nan_with_none(angle_data)
 
+    # --- Interpolate missing numeric values across frames ---
+    # Build a frame-indexed map to allow filling gaps for frames without detections
+    if not clean_data:
+        clean_data = []
+    else:
+        frames = [int(x['frame']) for x in clean_data if x['frame'] is not None]
+        # If the CSV did not include a 'frame' column, frames will be empty and
+        # every angle entry keeps frame=None. Assign sequential frame indices
+        # in that case so downstream code and the frontend have a usable frame key.
+        if not frames and clean_data:
+            for i, d in enumerate(clean_data):
+                d['frame'] = i
+            frames = list(range(len(clean_data)))
+        if frames:
+            min_f, max_f = min(frames), max(frames)
+            full_frames = list(range(min_f, max_f + 1))
+
+            # collect all numeric keys (excluding 'frame' and nested 'com')
+            numeric_keys = set()
+            for d in clean_data:
+                for k, v in d.items():
+                    if k == 'frame' or k == 'com':
+                        continue
+                    if isinstance(v, (int, float)) or v is None:
+                        numeric_keys.add(k)
+
+            # Flatten com into com_x/com_y/com_z for interpolation convenience
+            for d in clean_data:
+                com = d.get('com') or {}
+                d['com_x'] = com.get('x') if com else None
+                d['com_y'] = com.get('y') if com else None
+                d['com_z'] = com.get('z') if com else None
+                if 'com' in d:
+                    del d['com']
+            numeric_keys.update(['com_x', 'com_y', 'com_z'])
+
+            # build dict: frame -> {key: value}
+            by_frame = {int(d['frame']): d for d in clean_data if d['frame'] is not None}
+
+            import math as _math
+            def interp_series(keys, frames_list):
+                # keys: name of key to interpolate
+                xs = []
+                ys = []
+                for f in frames_list:
+                    v = by_frame.get(f, {}).get(keys, None)
+                    if v is None:
+                        ys.append(np.nan)
+                    else:
+                        try:
+                            ys.append(float(v))
+                        except Exception:
+                            ys.append(np.nan)
+                    xs.append(f)
+                ys = np.array(ys, dtype=float)
+                # where valid
+                valid = ~np.isnan(ys)
+                if valid.sum() == 0:
+                    return ys  # all nan, nothing to do
+                if valid.sum() == 1:
+                    # single value: fill with that value
+                    ys[~valid] = ys[valid][0]
+                    return ys
+                # linear interpolation for interior points
+                xp = np.array(xs)[valid]
+                fp = ys[valid]
+                yi = np.interp(xs, xp, fp)
+                # preserve original NaN where both xp but np.interp fills edges; keep edges filled
+                return yi
+
+            filled_by_frame = {}
+            for k in numeric_keys:
+                vals = interp_series(k, full_frames)
+                for idx, f in enumerate(full_frames):
+                    filled_by_frame.setdefault(f, {})[k] = (float(vals[idx]) if not np.isnan(vals[idx]) else None)
+
+            # reconstruct clean_data as full contiguous frames list using filled values
+            new_clean = []
+            for f in full_frames:
+                entry = {'frame': f}
+                for k in numeric_keys:
+                    entry[k] = filled_by_frame.get(f, {}).get(k)
+                # move back com_x/com_y/com_z into nested com for backward compatibility
+                entry['com'] = {
+                    'x': entry.pop('com_x', None),
+                    'y': entry.pop('com_y', None),
+                    'z': entry.pop('com_z', None)
+                }
+                # include other non-numeric keys from original if present (tags etc.)
+                orig = by_frame.get(f, {})
+                for ok, ov in orig.items():
+                    if ok in ('frame', 'com'):
+                        continue
+                    if ok in numeric_keys:
+                        continue
+                    entry[ok] = ov
+                new_clean.append(entry)
+            clean_data = new_clean
+
+    # After interpolation, recompute com_positions from the cleaned/interpolated data
+    com_positions = []
+    for d in clean_data:
+        com = d.get('com') or {}
+        com_positions.append([com.get('x', np.nan), com.get('y', np.nan), com.get('z', np.nan)])
     # COM 이동 범위, 안정성, 프레임별 score
-    com_positions_np = np.array(com_positions)
-    if len(com_positions_np) > 0 and not np.all(np.isnan(com_positions_np)):
+    # Ensure we have a float ndarray: replace None with np.nan and coerce to float to avoid
+    # numpy ufunc errors when the array dtype is object.
+    com_positions_clean = []
+    for row in com_positions:
+        new_row = []
+        for v in row:
+            if v is None:
+                new_row.append(np.nan)
+            else:
+                try:
+                    new_row.append(float(v))
+                except Exception:
+                    new_row.append(np.nan)
+        com_positions_clean.append(new_row)
+    try:
+        com_positions_np = np.array(com_positions_clean, dtype=float)
+    except Exception:
+        # Fallback: create an empty float array if conversion fails
+        com_positions_np = np.array([], dtype=float).reshape((0, 3))
+    if com_positions_np.size > 0 and not np.all(np.isnan(com_positions_np)):
+        # mean/std ignoring NaNs
         com_mean = np.nanmean(com_positions_np, axis=0)
         com_std = np.nanstd(com_positions_np, axis=0)
+        # ranges per-dim (None if entire dim is NaN)
         com_range = {
-            'x_range': float(np.nanmax(com_positions_np[:, 0]) - np.nanmin(com_positions_np[:, 0])) if not np.all(np.isnan(com_positions_np[:, 0])) else None,
-            'y_range': float(np.nanmax(com_positions_np[:, 1]) - np.nanmin(com_positions_np[:, 1])) if not np.all(np.isnan(com_positions_np[:, 1])) else None,
-            'z_range': float(np.nanmax(com_positions_np[:, 2]) - np.nanmin(com_positions_np[:, 2])) if not np.all(np.isnan(com_positions_np[:, 2])) else None,
+            'x_range': (float(np.nanmax(com_positions_np[:, 0]) - np.nanmin(com_positions_np[:, 0]))
+                        if not np.all(np.isnan(com_positions_np[:, 0])) else None),
+            'y_range': (float(np.nanmax(com_positions_np[:, 1]) - np.nanmin(com_positions_np[:, 1]))
+                        if not np.all(np.isnan(com_positions_np[:, 1])) else None),
+            'z_range': (float(np.nanmax(com_positions_np[:, 2]) - np.nanmin(com_positions_np[:, 2]))
+                        if not np.all(np.isnan(com_positions_np[:, 2])) else None),
         }
+        # Stability: prefer x/y when z missing. Require at least one dimension to evaluate.
         stability_threshold = 0.05
-        stable = (com_range['x_range'] is not None and com_range['y_range'] is not None and com_range['z_range'] is not None and
-                  com_range['x_range'] < stability_threshold and
-                  com_range['y_range'] < stability_threshold and
-                  com_range['z_range'] < stability_threshold)
+        dims_ok = []
+        if com_range['x_range'] is not None:
+            dims_ok.append(com_range['x_range'] < stability_threshold)
+        if com_range['y_range'] is not None:
+            dims_ok.append(com_range['y_range'] < stability_threshold)
+        if com_range['z_range'] is not None:
+            dims_ok.append(com_range['z_range'] < stability_threshold)
+        stable = all(dims_ok) if dims_ok else False
+
+        # Per-frame stability: compute Euclidean deviation using available dimensions per-frame
         com_stability_scores = []
-        for i, (x, y, z) in enumerate(com_positions_np):
-            if np.isnan(x) or np.isnan(y) or np.isnan(z):
+        for i, row in enumerate(com_positions_np):
+            # row is [x,y,z] possibly with NaNs; select dims that are valid in both row and mean
+            valid_mask = ~np.isnan(row) & ~np.isnan(com_mean)
+            if not valid_mask.any():
                 deviation = None
             else:
-                deviation = math.sqrt((x - com_mean[0]) ** 2 + (y - com_mean[1]) ** 2 + (z - com_mean[2]) ** 2)
+                diffs = row[valid_mask] - com_mean[valid_mask]
+                try:
+                    deviation = float(np.linalg.norm(diffs))
+                except Exception:
+                    deviation = None
             com_stability_scores.append({"frame": i, "score": float(deviation) if deviation is not None else None})
     else:
         com_mean = [None, None, None]
@@ -338,6 +539,34 @@ def save_angle_json(csv_path, out_json_path, fps=30):
         com_range = {'x_range': None, 'y_range': None, 'z_range': None}
         stable = False
         com_stability_scores = []
+
+    # compute a single COM stability metric (mean of per-frame deviations) and
+    # remove per-frame 'com' entries from the angles output as requested
+    # prepare per-frame COM frames list (use frame numbers from clean_data)
+    com_frames = []
+    for i, d in enumerate(clean_data):
+        frm = d.get('frame', i)
+        com = d.get('com') or {}
+        com_frames.append({
+            'frame': int(frm) if frm is not None else i,
+            'x': (float(com.get('x')) if com.get('x') is not None else None),
+            'y': (float(com.get('y')) if com.get('y') is not None else None),
+            'z': (float(com.get('z')) if com.get('z') is not None else None)
+        })
+
+    scores_only = [s.get('score') for s in com_stability_scores if s.get('score') is not None]
+    if scores_only:
+        try:
+            com_stability_mean = float(np.nanmean(np.array(scores_only, dtype=float)))
+        except Exception:
+            com_stability_mean = None
+    else:
+        com_stability_mean = None
+
+    # remove per-frame 'com' from cleaned angle entries (user requested dropping per-frame COM x/y/z)
+    for entry in clean_data:
+        if isinstance(entry, dict) and 'com' in entry:
+            entry.pop('com', None)
 
     output = {
         "fps": fps,
@@ -352,8 +581,13 @@ def save_angle_json(csv_path, out_json_path, fps=30):
             "range": com_range,
             "stable": stable
         },
-        "com_stability_scores": com_stability_scores
+        # single metric summarizing COM stability (mean deviation). Lower is more stable.
+        "com_stability": com_stability_mean
     }
+
+    # attach per-frame COM coordinates and per-frame stability scores so frontend can plot them
+    output["com_frames"] = com_frames
+    output["com_stability_scores"] = com_stability_scores
 
     # Write output JSON
     try:

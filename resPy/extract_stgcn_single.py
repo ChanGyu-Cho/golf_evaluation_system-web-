@@ -21,8 +21,8 @@ def extract_stgcn_embedding(crop_csv_path, out_npy_path):
     # 환경에 맞게 경로 수정
     BASE_DIR = r"D:/mmaction2"
     sys.path.insert(0, BASE_DIR)
-    CFG = r"D:/Jabez/golf/fusion/mmaction_files/my_stgcnpp.py"
-    CKPT = r"D:/Jabez/golf/mmAction2_finetune/finetuned_model/stgcn_62p.pth"
+    CFG = r"D:/golf_evaluation_system-web-/resPy/my_stgcnpp.py"
+    CKPT = r"D:/golf_evaluation_system-web-/resPy/stgcn_62p.pth"
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # data_loader.ipynb의 make_pkl, load_and_process 방식 반영

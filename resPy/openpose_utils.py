@@ -29,6 +29,40 @@ def run_openpose_and_crop(input_video, crop_video_dir, crop_csv_dir, skeleton_vi
     respy_dir = Path(__file__).parent.resolve()
     tmp_json_dir = respy_dir / f"_tmp_json_{basename}"
     tmp_json_dir.mkdir(exist_ok=True, parents=True)
+    # Prepare a robust cleanup helper and register it to run at process exit.
+    import atexit, time
+    keep_tmp = os.environ.get('KEEP_TMP_JSON', '0') == '1'
+    def _rmtree_force(path):
+        # onerror handler: try to fix permissions then retry
+        def _onerror(func, path_, exc_info):
+            try:
+                os.chmod(path_, 0o700)
+                func(path_)
+            except Exception:
+                pass
+        try:
+            shutil.rmtree(path, onerror=_onerror)
+            return True
+        except Exception:
+            # retry a few times with small backoff
+            for _ in range(3):
+                time.sleep(0.2)
+                try:
+                    shutil.rmtree(path, onerror=_onerror)
+                    return True
+                except Exception:
+                    continue
+        return False
+
+    def _cleanup_tmp():
+        if keep_tmp:
+            print(f"[DEBUG] KEEP_TMP_JSON=1, preserving tmp_json_dir: {tmp_json_dir}")
+            return
+        ok = _rmtree_force(tmp_json_dir)
+        if not ok:
+            print(f"[WARN] _rmtree_force failed to remove tmp_json_dir: {tmp_json_dir}")
+
+    atexit.register(_cleanup_tmp)
     crop_video_dir = Path(crop_video_dir); crop_video_dir.mkdir(exist_ok=True)
     crop_csv_dir = Path(crop_csv_dir); crop_csv_dir.mkdir(exist_ok=True)
     # Prepare absolute input path and pre-reencode input video to ensure OpenPose/OpenCV can open it reliably
@@ -170,8 +204,16 @@ def run_openpose_and_crop(input_video, crop_video_dir, crop_csv_dir, skeleton_vi
     import pandas as pd
     pd.DataFrame(rows, columns=COLS).to_csv(crop_csv_path, index=False)
 
-    # 7. 임시 폴더 정리
-    shutil.rmtree(tmp_json_dir)
+    # 7. 임시 폴더 정리: 즉시 제거 시도 (또는 atexit에 의해 프로세스 종료 시 시도)
+    try:
+        if not keep_tmp:
+            ok = _rmtree_force(tmp_json_dir)
+            if not ok:
+                print(f"[WARN] Immediate removal failed for tmp_json_dir {tmp_json_dir}; will attempt again at process exit.")
+        else:
+            print(f"[DEBUG] KEEP_TMP_JSON=1, preserving tmp_json_dir: {tmp_json_dir}")
+    except Exception as e:
+        print(f"[WARN] Failed to remove tmp_json_dir {tmp_json_dir}: {e}")
     return crop_video_path, crop_csv_path
 
 # --- skeleton 비디오 생성 함수 ---

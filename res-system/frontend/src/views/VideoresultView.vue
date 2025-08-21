@@ -43,6 +43,8 @@
       :key="svu || 'landmark'"
       :jointData="jointData"
       :currentJointData="currentJointData"
+  :currentFrameIndex="currentFrameIndex"
+  :videoFps="VIDEO_FPS"
       v-model="selectedJoint"
       :koreanJointNameMap="koreanJointNameMap"
       :comStabilityScores="comStabilityScores"
@@ -173,7 +175,10 @@ const normalizeAndSetAngles = (src) => {
 }
 
 const svu = ref('')
-const analysis_id = computed(() => `${store.state.store_userid1}_${svu.value}`)
+const analysis_id = computed(() => {
+  const uid = store.state.store_userid1 || ''
+  return svu.value ? `${uid}_${svu.value}` : uid
+})
 
 onMounted(async () => {
   // 1. result json 파일명 결정 (route.query.result 또는 서버에서 전달)

@@ -152,7 +152,8 @@ public class FileSearchController {
                     "D:/golf_evaluation_system-web-/resPy/crop_csv",
                     "D:/golf_evaluation_system-web-/resPy/crop_video",
                     "D:/golf_evaluation_system-web-/resPy/embedding",
-                    "D:/golf_evaluation_system-web-/resPy/result"
+                    "D:/golf_evaluation_system-web-/resPy/result",
+                    "D:/golf_evaluation_system-web-/resPy/angle"
                 };
                 for (String folderPath : folders) {
                     File dir = new File(folderPath);

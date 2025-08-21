@@ -42,9 +42,16 @@
     </div>
 
     <!-- 차트 -->
-    <div v-if="jointData.length" class="chart-container u-card">
-      <canvas ref="chartRef"></canvas>
-    </div>
+      <div v-if="jointData.length" class="chart-container u-card">
+        <template v-if="hasNumericData">
+          <canvas ref="chartRef"></canvas>
+        </template>
+        <template v-else>
+          <div class="no-data" style="padding:24px; text-align:center; color:#666">
+            차트에 표시할 각도/COM 데이터가 없습니다.
+          </div>
+        </template>
+      </div>
   </div>
 </template>
 
@@ -59,6 +66,8 @@ const props = defineProps({
   currentJointData: { type: Object, required: false, default: () => ({}) },
   koreanJointNameMap: { type: Object, required: false, default: () => ({}) },
   comStabilityScores: { type: Array, default: () => [] },
+  currentFrameIndex: { type: Number, required: false, default: 0 },
+  videoFps: { type: [Number, String], required: false, default: 30 },
   modelValue: { type: String, default: '' },
 })
 const emit = defineEmits(['update:modelValue'])
@@ -111,10 +120,87 @@ const highlightColor = computed(() => paletteMap.value[selectedJointLocal.value]
 const highlightBg = computed(() => highlightColor.value + '22')
 const isNum = v => typeof v === 'number' && !isNaN(v)
 
+// true when any numeric (non-null) value exists in the jointData rows
+const hasNumericData = computed(() => {
+  if (!jointData.value || !jointData.value.length) return false
+  for (const r of jointData.value) {
+    for (const k of Object.keys(r)) {
+      if (k === 'frame') continue
+      const v = r[k]
+      if (typeof v === 'number' && !isNaN(v)) return true
+    }
+  }
+  return false
+})
+
 /* ---------- Chart ---------- */
 let chartInstance = null
 const chartRef = ref(null)
 let needsUpdate = false
+// value used by Chart plugin to position the red-line (frame number)
+let pluginCurrentFrame = 0
+
+// Chart.js plugin: draws a vertical red line at the provided frame index
+const redLinePlugin = {
+  id: 'redLinePlugin',
+  afterDraw(chart) {
+    if (!chart.config || !chart.config.options || chart.config.options._drawRedLine !== true) return
+    const ctx = chart.ctx
+    const xScale = chart.scales['x']
+    if (!xScale) return
+  // Use the module-level pluginCurrentFrame to avoid touching chart.options (prevents scriptable recursion)
+  const frame = typeof pluginCurrentFrame === 'number' ? pluginCurrentFrame : null
+    if (frame === null) return
+    // find pixel for frame on x-scale
+    const labels = chart.data.labels || []
+    let x = null
+    // 1) Try directly asking the scale for the pixel (works for numeric/linear/time scales)
+    try {
+      const maybe = xScale.getPixelForValue(Number(frame))
+      if (typeof maybe === 'number' && !isNaN(maybe)) x = maybe
+    } catch (e) {
+      // ignore and fall through to other strategies
+    }
+
+    // 2) If that didn't work, try matching labels exactly or numerically
+    if (x === null) {
+      let idx = labels.indexOf(frame)
+      if (idx === -1) idx = labels.findIndex(l => Number(l) === Number(frame))
+      if (idx !== -1) {
+        try {
+          const maybe2 = xScale.getPixelForValue(labels[idx])
+          if (typeof maybe2 === 'number' && !isNaN(maybe2)) x = maybe2
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    // 3) Fallback: numeric-interpolate across chart area using numeric label bounds
+    if (x === null) {
+      const numericLabels = labels.map(l => Number(l)).filter(n => !isNaN(n))
+      if (numericLabels.length >= 2) {
+        const min = Math.min(...numericLabels)
+        const max = Math.max(...numericLabels)
+        const ratio = max === min ? 0 : (Number(frame) - min) / (max - min)
+        const left = chart.chartArea.left
+        const right = chart.chartArea.right
+        const clamped = Math.max(0, Math.min(1, ratio || 0))
+        x = left + clamped * (right - left)
+      }
+    }
+    if (x === null) return
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255,0,0,0.9)'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.moveTo(x, chart.chartArea.top)
+    ctx.lineTo(x, chart.chartArea.bottom)
+    ctx.stroke()
+    ctx.restore()
+  }
+}
+Chart.register(redLinePlugin)
 
 function buildDatasets() {
   const ds = []
@@ -171,11 +257,12 @@ function buildDatasets() {
 function updateChart() {
   if (!chartRef.value) return
   const { ds, labels } = buildDatasets()
-  if (!chartInstance) {
+    if (!chartInstance) {
     chartInstance = new Chart(chartRef.value, {
       type: 'line',
       data: { labels, datasets: ds },
       options: {
+        _drawRedLine: true,
         responsive: true,
         animation: false,
         scales: {
@@ -194,6 +281,19 @@ function updateChart() {
     chartInstance.update('none')
   }
 }
+
+// Update plugin frame and redraw chart when currentFrameIndex prop changes
+watch(() => props.currentFrameIndex, (nf) => {
+  try {
+    pluginCurrentFrame = Number(nf) || 0
+    if (chartInstance) {
+      // plugin reads pluginCurrentFrame directly; just trigger a redraw
+      chartInstance.update('none')
+    }
+  } catch (e) {
+    // non-fatal
+  }
+})
 
 /* ---------- RAF Batching ---------- */
 function scheduleUpdate() {

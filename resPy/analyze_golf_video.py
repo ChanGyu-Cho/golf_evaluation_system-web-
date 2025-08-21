@@ -77,7 +77,7 @@ def analyze_golf_video(input_video_path, user_id=None):
         generated_com_scores = []
         angle_json_path = None
         try:
-            # local import to avoid heavy deps at module import time
+            # local import to avoid heavy deps at module import timeB
             import cv2 as _cv2
             from save_angle_json import save_angle_json
             # store angle JSONs in dedicated angle directory (not result folder)

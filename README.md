@@ -1,16 +1,11 @@
-사용자에게 골프 비디오를 입력받아 기본적 CNN+GNU 구조로 학습된 이진 분류 평가 모델에 입력해 분류 결과를 보여주고,  
+https://github.com/drmoon-1st/Jabez  
+https://github.com/ChanGyu-Cho/mmaction2  
+https://github.com/ChanGyu-Cho/TimeSformer  
 
-스켈레톤 시각화, 프레임별 속도 동기화 그래프 표시, 코멘트 기능들을 사용자에게 제공하는 vue3+java+python 구조의 풀스택 시스템 입니다.
+이 3가지 repo를 vue3, spring을 활용한 풀스택으로 제공합니다.  
+3가지 repo를 모두 D:에 다운받고, openpose windows용, ffmpeg를 다운받고 사용하시면 됩니다.
+아직 개발중이라 모든 경로는 windows기준 절대경로들로 작성되어있습니다. 경로 수정 참고하세요. 
 
-
-This is a full-stack system built with Vue 3 (frontend), Java (backend), and Python (for specific functionalities). It allows users to upload golf videos.
-
-The system processes these videos by inputting them into a binary classification evaluation model, trained with a basic CNN (Convolutional Neural Network) + GRU (Gated Recurrent Unit) architecture, to display the classification results.
-
-Additionally, it provides users with several features:
-
-Skeleton visualization
-
-Frame-by-frame speed synchronization graphs
-
-Commenting functionality
+These three repos are provided as a full-stack implementation using Vue3 and Spring.  
+Download all three repos to D:\, then download and use OpenPose for Windows and FFmpeg.  
+Since this is still under development, all paths are absolute paths for Windows. Please refer to the path modification instructions.  

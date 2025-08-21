@@ -278,8 +278,29 @@ function updateChart() {
   } else {
     chartInstance.data.labels = labels
     chartInstance.data.datasets = ds
-    chartInstance.update('none')
+    safeUpdate()
   }
+}
+
+// Safe update helper: perform chart update asynchronously and fall back to recreate on error
+function safeUpdate() {
+  if (!chartInstance) return
+  // run async to avoid re-entrant scriptable resolution on the same call stack
+  setTimeout(() => {
+    try {
+      chartInstance.update('none')
+    } catch (err) {
+      console.warn('[LandmarkView] chart update failed, attempting rebuild', err && err.message)
+      try {
+        const data = chartInstance.data
+        const options = chartInstance.options
+        chartInstance.destroy()
+        chartInstance = new Chart(chartRef.value, { type: 'line', data, options })
+      } catch (re) {
+        console.error('[LandmarkView] chart rebuild failed', re && re.message)
+      }
+    }
+  }, 0)
 }
 
 // Update plugin frame and redraw chart when currentFrameIndex prop changes

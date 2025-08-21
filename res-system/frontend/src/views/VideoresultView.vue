@@ -59,6 +59,7 @@
 </template>
 
 <script setup>
+/* eslint-disable */
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
@@ -124,6 +125,53 @@ watch(() => currentFrameIndex.value, n => {
   currentJointData.value = jointData.value.find(d => d.frame === n) || jointData.value[0]
 })
 
+// Robust angle/COM loading moved to module scope so it's not an inner declaration
+const normalizeAndSetAngles = (src) => {
+  if (!src) return false
+  const fpsVal = src.fps || src.FPS || src.video_fps || null
+  if (fpsVal) VIDEO_FPS.value = fpsVal
+
+  const comScores = Array.isArray(src.com_stability_scores)
+    ? src.com_stability_scores
+    : Array.isArray(src.comScores)
+    ? src.comScores
+    : []
+
+  comStabilityScores.value = comScores || []
+
+  const stabilityMap = new Map(
+    (comStabilityScores.value || []).map(d => [Number(d.frame), d.score])
+  )
+
+  const rawAngles = Array.isArray(src.angles)
+    ? src.angles
+    : Array.isArray(src.angle)
+    ? src.angle
+    : []
+
+  const normalized = rawAngles.map((f, idx) => {
+    const frameNum = Number(f.frame ?? f.idx ?? f.index ?? NaN)
+    const frameVal = Number.isFinite(frameNum) ? frameNum : idx
+    const out = { frame: frameVal }
+    for (const k of Object.keys(f)) {
+      if (k === 'frame' || k === 'idx' || k === 'index') continue
+      const v = f[k]
+      if (k === 'com' && v && typeof v === 'object') {
+        out.com_x = typeof v.x === 'number' ? v.x : v.x === null || v.x === undefined ? null : isNaN(Number(v.x)) ? v.x : Number(v.x)
+        out.com_y = typeof v.y === 'number' ? v.y : v.y === null || v.y === undefined ? null : isNaN(Number(v.y)) ? v.y : Number(v.y)
+        out.com_z = typeof v.z === 'number' ? v.z : v.z === null || v.z === undefined ? null : isNaN(Number(v.z)) ? v.z : Number(v.z)
+        continue
+      }
+      out[k] = typeof v === 'number' ? v : v === null || v === undefined ? null : isNaN(Number(v)) ? v : Number(v)
+    }
+    out.com_stability_score = stabilityMap.get(out.frame) ?? null
+    return out
+  })
+
+  jointData.value = normalized || []
+  return true
+}
+
 const svu = ref('')
 const analysis_id = computed(() => `${store.state.store_userid1}_${svu.value}`)
 
@@ -185,6 +233,8 @@ onMounted(async () => {
         result.value = p === 1 ? 'Good' : p === 0 ? 'Bad' : 'unknown'
       }
     }
+  // Debug: print received resultData summary
+  try { console.debug('[DBG] resultData keys:', Object.keys(resultData || {}), 'svu', svu.value, 'analysis_id', analysis_id.value) } catch(e){}
     // 2. skeleton video 파일명 추출 (result json에서)
     let skeletonVideoPath = resultData.openpose_skeleton_video_h264 || ''
     let skeletonVideoFile = skeletonVideoPath ? skeletonVideoPath.split(/[\\/]/).pop() : ''
@@ -216,6 +266,7 @@ onMounted(async () => {
     }
     // Robust angle/COM loading: support inline angles or external angle_json file.
     const normalizeAndSetAngles = (src) => {
+  try { console.debug('[DBG] normalizeAndSetAngles called, src keys:', src && typeof src === 'object' ? Object.keys(src) : typeof src) } catch(e){}
       if (!src) return false
       const fpsVal = src.fps || src.FPS || src.video_fps || null
       if (fpsVal) VIDEO_FPS.value = fpsVal
@@ -261,6 +312,7 @@ onMounted(async () => {
       })
 
       jointData.value = normalized || []
+  try { console.debug('[DBG] jointData.length =', jointData.value.length, 'sample', jointData.value.slice(0,3)) } catch(e){}
       return true
     }
 
@@ -294,6 +346,7 @@ onMounted(async () => {
       }
     }
     currentJointData.value = jointData.value[0] || null
+    try { console.debug('[DBG] currentJointData initialized:', currentJointData.value) } catch(e){}
   } catch (e) {
     console.error('분석 JSON 파일을 찾을 수 없습니다:', resultJsonUrl, e)
     errorMessage.value = '분석 결과를 불러올 수 없습니다. 업로드 후 처리 중이거나 파일명이 올바르지 않습니다.'

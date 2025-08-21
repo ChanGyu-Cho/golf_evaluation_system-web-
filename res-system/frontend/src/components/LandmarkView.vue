@@ -207,6 +207,14 @@ function scheduleUpdate() {
 
 watch([jointData, selectedJointLocal], scheduleUpdate)
 onMounted(updateChart)
+// Debug: surface safeCurrent & filteredEntries
+onMounted(() => {
+  try {
+    console.debug('[DBG] LandmarkView safeCurrent', safeCurrent.value, 'filteredEntries', filteredEntries.value.slice(0,10))
+  } catch (e) {
+    console.debug('[DBG] LandmarkView debug failed', e && e.message)
+  }
+})
 </script>
 
 <style scoped>

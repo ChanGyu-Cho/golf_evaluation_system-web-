@@ -156,7 +156,9 @@ def analyze_golf_video(input_video_path, user_id=None):
     mlp_error = None
     try:
         print(f'[STEP] MLP classification start: timesformer={timesformer_emb_path}, stgcn={stgcn_emb_path}'); sys.stdout.flush()
-        mlp_result = mlp_predict(timesformer_emb_path, stgcn_emb_path)
+        # Pass explicit model_path to avoid legacy two-arg ambiguity in mlp_predict
+        default_model = Path(__file__).parent.resolve() / 'mlp_model.pth'
+        mlp_result = mlp_predict(str(stgcn_emb_path), model_path=str(default_model))
         print(f'[SUCCESS] MLP classification done: result={mlp_result}'); sys.stdout.flush()
     except Exception as e:
         import traceback

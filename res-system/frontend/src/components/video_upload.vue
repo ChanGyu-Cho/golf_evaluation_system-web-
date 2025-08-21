@@ -83,10 +83,15 @@ async function uploadVideo() {
 
   const formData = new FormData()
   formData.append('file', selectedFile.value)
-  formData.append(
-    'userid',
-    localStorage.getItem('userid1') || sessionStorage.getItem('userid2')
-  )
+
+  // frontend: validate userid before sending to backend (backend expects integer)
+  const rawUserId = localStorage.getItem('userid1') || sessionStorage.getItem('userid2')
+  if (!rawUserId || !/^\d+$/.test(rawUserId)) {
+    loading.value = false
+    alert('유효한 사용자 ID가 없습니다. 로그인 후 다시 시도하세요.')
+    return
+  }
+  formData.append('userid', rawUserId)
 
   try {
     const res = await axios.post('/images/upload', formData, {

@@ -176,92 +176,14 @@ function computeOverlayPosition() {
 }
 
 // Chart.js plugin: draws a vertical red line at the provided frame index
+// redLinePlugin intentionally left as a no-op for canvas drawing.
+// We use the DOM overlay (.red-line-overlay) as the single source of truth
+// for the vertical red time marker to avoid duplicate/ghost lines.
 const redLinePlugin = {
   id: 'redLinePlugin',
-  afterDraw(chart) {
-    if (!chart.config || !chart.config.options || chart.config.options._drawRedLine !== true) return
-    const ctx = chart.ctx
-    const xScale = chart.scales['x']
-    if (!xScale) return
-  // Use the module-level pluginCurrentFrame to avoid touching chart.options (prevents scriptable recursion)
-  const frame = typeof pluginCurrentFrame === 'number' ? pluginCurrentFrame : null
-    if (frame === null) return
-    // find pixel for frame on x-scale
-    const labels = chart.data.labels || []
-    let x = null
-    // 1) Try directly asking the scale for the pixel (works for numeric/linear/time scales)
-    try {
-      const maybe = xScale.getPixelForValue(Number(frame))
-      if (typeof maybe === 'number' && !isNaN(maybe)) x = maybe
-    } catch (e) {
-      // ignore and fall through to other strategies
-      // eslint-disable-next-line no-console
-      console.debug('[LandmarkView] getPixelForValue try failed', e && e.message)
-    }
-
-    // 2) If that didn't work, try matching labels exactly or numerically
-    if (x === null) {
-      let idx = labels.findIndex(l => l === frame)
-      if (idx === -1) idx = labels.findIndex(l => Number(l) === Number(frame))
-      // If still not found, pick the nearest numeric label (handles sparse/non-contiguous frames)
-      if (idx === -1) {
-        const numericLabels = labels.map((l, i) => ({ v: Number(l), i })).filter(o => !isNaN(o.v))
-        if (numericLabels.length) {
-          let best = numericLabels[0]
-          for (const nl of numericLabels) {
-            if (Math.abs(nl.v - Number(frame)) < Math.abs(best.v - Number(frame))) best = nl
-          }
-          idx = best.i
-        }
-      }
-      if (idx !== -1) {
-        // try index-based getPixelForValue (category scales expect index)
-        try {
-          const maybeIdx = xScale.getPixelForValue(idx)
-          if (typeof maybeIdx === 'number' && !isNaN(maybeIdx)) x = maybeIdx
-        } catch (e) {
-          // fallback to label value
-          try {
-            const maybe2 = xScale.getPixelForValue(labels[idx])
-            if (typeof maybe2 === 'number' && !isNaN(maybe2)) x = maybe2
-          } catch (e2) {
-            // eslint-disable-next-line no-console
-            console.debug('[LandmarkView] getPixelForValue fallback failed', e2 && e2.message)
-          }
-        }
-      }
-    }
-
-    // 3) Fallback: numeric-interpolate across chart area using numeric label bounds
-    if (x === null) {
-      const numericLabels = labels.map(l => Number(l)).filter(n => !isNaN(n))
-      if (numericLabels.length >= 2) {
-        const min = Math.min(...numericLabels)
-        const max = Math.max(...numericLabels)
-        const ratio = max === min ? 0 : (Number(frame) - min) / (max - min)
-        const left = chart.chartArea.left
-        const right = chart.chartArea.right
-        const clamped = Math.max(0, Math.min(1, ratio || 0))
-        x = left + clamped * (right - left)
-      }
-    }
-    if (x === null) return
-    // DEBUG: surface what we computed for troubleshooting
-    try {
-      // eslint-disable-next-line no-console
-      console.debug('[LandmarkView] redLine', { frame, x, labelsCount: labels.length, labelsSample: labels.slice(0,6) })
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.debug('[LandmarkView] redLine log failed', e && e.message)
-    }
-    ctx.save()
-    ctx.strokeStyle = 'rgba(255,0,0,0.9)'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(x, chart.chartArea.top)
-    ctx.lineTo(x, chart.chartArea.bottom)
-    ctx.stroke()
-    ctx.restore()
+  afterDraw(/* chart */) {
+    // no-op: canvas-based drawing disabled in favor of DOM overlay
+    return
   }
 }
 Chart.register(redLinePlugin)
@@ -338,14 +260,44 @@ function updateChart() {
         },
         plugins: {
           legend: { position: 'bottom', labels: { padding: 12 } },
-          tooltip: { mode: 'nearest', intersect: false },
+          tooltip: {
+            mode: 'nearest',
+            intersect: false,
+            // filter out items with null/undefined y to avoid internal Chart.js tooltip errors
+            filter: function(item) {
+              try {
+                return item && item.parsed && item.parsed.y !== null && item.parsed.y !== undefined
+              } catch (e) { return false }
+            }
+          },
         }
       }
     })
   } else {
     // replace datasets while keeping existing chart options
+    // temporarily disable tooltip while swapping datasets to avoid tooltip trying to reference
+    // dataset/element indices that may be in-flight during the update (prevents getLabelAndValue null errors)
+    try {
+      if (!chartInstance.options) chartInstance.options = {}
+      if (!chartInstance.options.plugins) chartInstance.options.plugins = {}
+      if (!chartInstance.options.plugins.tooltip) chartInstance.options.plugins.tooltip = {}
+      chartInstance.options.plugins.tooltip.enabled = false
+    } catch (e) {
+      // ignore
+    }
     chartInstance.data.datasets = ds
     safeUpdate()
+    // re-enable tooltip after a short delay once the update has settled
+    setTimeout(() => {
+      try {
+        if (chartInstance && chartInstance.options && chartInstance.options.plugins && chartInstance.options.plugins.tooltip) {
+          chartInstance.options.plugins.tooltip.enabled = true
+          safeUpdate()
+        }
+      } catch (err) {
+        console.debug('[LandmarkView] re-enable tooltip failed', err && err.message)
+      }
+    }, 100)
   }
   try { computeOverlayPosition() } catch(e) { console.debug('[LandmarkView] computeOverlayPosition error', e && e.message) }
 }

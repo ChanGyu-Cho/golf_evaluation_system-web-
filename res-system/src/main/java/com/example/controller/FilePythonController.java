@@ -35,7 +35,7 @@ public class FilePythonController {
     @PostMapping("/upload")
     @Transactional
     public ResponseEntity<?> handleVideoUpload(@RequestParam("file") MultipartFile file,
-                                               @RequestParam("userid") String userId) {
+                                               @RequestParam("userid") int userId) {
         try {
             String originalFilename = file.getOriginalFilename();
             String prefixedFilename = userId + "_" + originalFilename;
@@ -55,7 +55,7 @@ public class FilePythonController {
                 "D:/golf_evaluation_system-web-/resPy/analyze_golf_video.py",
                 "--video", savedFile.getAbsolutePath(),
                 "--out", resultJsonFile.getAbsolutePath(), // result 폴더로 넘김
-                "--user", userId
+                "--user", String.valueOf(userId)
             );
             // Prepare logs directory and per-run log file
             File logsDir = new File("D:/golf_evaluation_system-web-/resPy/result/logs");
@@ -190,6 +190,7 @@ public class FilePythonController {
 
             String insertSql = "INSERT INTO video (userid, vid_name, eval, upload_date) VALUES (?, ?, ?, ?)";
             Query insertQuery = entityManager.createNativeQuery(insertSql);
+            // use the validated integer for database insert, keep original userId string for filenames
             insertQuery.setParameter(1, userId);
             insertQuery.setParameter(2, uniqueFilename);
             insertQuery.setParameter(3, pred);

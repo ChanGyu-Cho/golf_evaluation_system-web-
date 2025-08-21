@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["user_id","openpose_skeleton_video_h264","crop_video","crop_csv","embedding_timesformer","embedding_stgcn","mlp_result","status"],
+  "properties": {
+    "user_id": {"type": ["string", "null"]},
+    "openpose_skeleton_video_h264": {"type": ["string", "null"]},
+    "crop_video": {"type": ["string", "null"]},
+    "crop_csv": {"type": ["string", "null"]},
+    "embedding_timesformer": {"type": ["string", "null"]},
+    "embedding_stgcn": {"type": ["string", "null"]},
+    "mlp_result": {
+      "type": ["object", "null"],
+      "properties": {
+        "prob_true": {"type": ["number", "null"]},
+        "prob_false": {"type": ["number", "null"]},
+        "pred": {"type": ["integer", "null"]}
+      }
+    },
+    "status": {"type": "string", "enum": ["success","error"]},
+    "result_version": {"type": ["integer", "null"]},
+    "angle_json": {"type": ["string", "null"]},
+    "skeleton_video": {"type": ["string", "null"]},
+    "error": {"type": ["string", "null"]},
+    "traceback": {"type": ["string", "null"]}
+  },
+  "additionalProperties": true
+}

@@ -1,3 +1,14 @@
 resPy/uploaded-videos/*
 resPy/cnn_gru_model.pth
-resPy/model.pth
+resPy/timesformer_model.pth
+
+resPy/angle
+resPy/crop_csv
+resPy/crop_video
+resPy/embedding
+resPy/result
+resPy/skeleton_video
+resPy/uploaded-videos
+resPy/work_dirs
+
+res-system/work_dirs

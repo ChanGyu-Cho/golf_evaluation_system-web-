@@ -29,6 +29,11 @@ public class CommentsController {
     @PostMapping("/add")
     public ResponseEntity<?> addTag(@RequestBody AnalysisTagDto dto) {
         Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+        // Validate analysis_id: expected form '<user>_<vidbase>_<idx>' when saved; at minimum require no trailing underscore
+        String aid = dto.getAnalysis_id();
+        if (aid == null || aid.trim().isEmpty() || aid.endsWith("_")) {
+            return ResponseEntity.badRequest().body("invalid analysis_id");
+        }
 
         String insertSql = "INSERT INTO comment (userid, analysis_id, frame_index, tag, memo, timestamp_sec) " +
                 "VALUES (?, ?, ?, ?, ?, ?)";

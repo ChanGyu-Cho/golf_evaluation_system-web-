@@ -45,11 +45,17 @@ const rowData = ref([])
 const playOriginalVideo = (vidName) => {
   router.push({ name: 'VideoplayView', query: { filename: vidName } })
 }
-const playSkeletonVideo = (vidName, evalResult) => {
-  router.push({ name: 'VideoresultView',
-  query: { skeletonVideo: `skeleton_${vidName}`,
-    result: evalResult
-  } })
+const playSkeletonVideo = (vidName) => {
+  // pass the canonical result JSON name (frontend will append .json if needed)
+  // analyze output uses names like result_{vid_name}.json
+  const resultParam = `result_${vidName}`
+  router.push({
+    name: 'VideoresultView',
+    query: {
+      skeletonVideo: `skeleton_${vidName}`,
+      result: resultParam
+    }
+  })
 }
 
 const columnDefs = [
@@ -57,7 +63,7 @@ const columnDefs = [
   { field: 'userid', headerName: 'User ID' },
   { field: 'vid_name', headerName: '비디오 이름' },
   { field: 'eval', headerName: '평가' },
-  { field: 'upload_date', headerName: '업로드 시간' },  // ✅ 추가됨
+  { field: 'upload_date', headerName: '업로드 시간' },
   {
     headerName: '업로드 영상',
     cellRenderer: () => {
@@ -78,12 +84,11 @@ const columnDefs = [
     onCellClicked: (params) => {
       const type = params.event?.target?.dataset?.type
       if (type === 'skeleton') {
-        playSkeletonVideo(params.data.vid_name, params.data.eval)
+  playSkeletonVideo(params.data.vid_name)
       }
     }
   }
 ]
-
 
 const gridApi = ref(null)
 const gridColumnApi = ref(null)
@@ -94,7 +99,6 @@ const handleSearch = () => {
     rowData.value = []
     return
   }
-
   axios.post('/images/file_search', {
     userid: userId.value,
   })
@@ -142,15 +146,12 @@ const handleDelete = async () => {
     alert('삭제할 항목을 선택하세요.')
     return
   }
-
   const confirmDelete = confirm(`${selectedRows.length}개의 파일을 삭제하시겠습니까?`)
   if (!confirmDelete) return
-
   try {
     const response = await axios.post('/images/file_delete', {
       list: selectedRows
     })
-
     alert(response.data.message || '삭제 성공')
     handleSearch()
   } catch (error) {

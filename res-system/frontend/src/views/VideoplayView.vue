@@ -38,7 +38,13 @@ const videoSrc = ref(null)
 onMounted(() => {
   const filename = route.query.filename
   if (filename) {
-    videoSrc.value = `/images/search_video?filename=${encodeURIComponent(filename)}`
+    // normalize to canonical openpose skeleton filename if needed
+    const raw = String(filename).split(/[\\/]/).pop()
+    let name = raw.replace(/^skeleton_/, '')
+    name = name.replace(/_openpose_skeleton_h264\.mp4$/i, '')
+    name = name.replace(/\.mp4$/i, '')
+    const canonical = `${name}_openpose_skeleton_h264.mp4`
+    videoSrc.value = `/images/search_video?filename=${encodeURIComponent(canonical)}`
   }
 })
 

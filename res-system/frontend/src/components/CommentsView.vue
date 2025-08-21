@@ -86,6 +86,12 @@ const palette = t => `hsl(${[...t].reduce((a,c)=>(a+c.charCodeAt(0))%360,0)} 70%
 /* ── 목록 + idx 계산 ── */
 async function fetchComments() {
   if (!props.analysis_id) return
+  // defensive: if analysis_id looks like user_ (empty video id) it is invalid -> skip
+  if (String(props.analysis_id).endsWith('_')) {
+    console.warn('CommentsView: received invalid analysis_id (ends with underscore), skipping fetch:', props.analysis_id)
+    comments.value = []; nextIdx.value = 0
+    return
+  }
   try {
     const { data } = await axios.get(`/comments/${encodeURIComponent(props.analysis_id)}`)
     comments.value = Array.isArray(data) ? data : []
@@ -105,6 +111,10 @@ async function fetchComments() {
 /* ── 저장 ── */
 async function submitComment() {
   if (!props.currentJointData || !commentText.value.trim()) return
+  if (!props.analysis_id || String(props.analysis_id).endsWith('_')) {
+    alert('메모를 저장할 올바른 분석 ID가 없습니다. 페이지를 새로고침하거나 결과를 다시 불러와 주세요.')
+    return
+  }
   loadingSave.value = true
 
   const fullId = `${props.analysis_id}_${nextIdx.value}`

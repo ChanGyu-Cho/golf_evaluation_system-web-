@@ -185,6 +185,26 @@ def csv_to_precomputed_landmark_json(csv_path, json_path, fps):
 
 
 def process_with_skeleton(input_path, output_path, csv_path, json_path):
+    # --- ffmpeg로 웹 호환 mp4(h264/yuv420p/faststart)로 재인코딩 ---
+    import shutil
+    import subprocess
+    import os
+    ffmpeg_path = shutil.which('ffmpeg')
+    if ffmpeg_path is not None and os.path.exists(output_path):
+        temp_out = str(output_path) + '.ffmpeg_tmp.mp4'
+        cmd = [ffmpeg_path, '-y', '-i', str(output_path), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', temp_out]
+        try:
+            print(f"[ffmpeg] Re-encoding for web compatibility: {' '.join(cmd)}")
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0 and os.path.exists(temp_out):
+                os.replace(temp_out, output_path)
+                print(f"[ffmpeg] Web-compatible h264 mp4 saved: {output_path}")
+            else:
+                print(f"[ffmpeg] Re-encode failed: {result.stderr.decode(errors='ignore')}")
+        except Exception as e:
+            print(f"[ffmpeg] Exception during re-encode: {e}")
+    else:
+        print("[ffmpeg] ffmpeg not found or skeleton mp4 missing. h264 re-encode skipped.")
     mp_drawing = mp.solutions.drawing_utils
     mp_pose = mp.solutions.pose
 
@@ -203,15 +223,16 @@ def process_with_skeleton(input_path, output_path, csv_path, json_path):
     else:
         width, height = orig_width, orig_height
 
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
 
+    # h264(avc1)로 저장 시도, 실패 시 mp4v로 fallback
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     if not out.isOpened():
-        print("VideoWriter failed to open with H.264 codec. Fallback to mp4v")
+        print('Warning: VideoWriter failed to open with avc1 (h264) codec. Trying mp4v fallback.')
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
         if not out.isOpened():
-            print("Error: VideoWriter failed to open even with mp4v codec.")
+            print('Error: VideoWriter failed to open with both avc1 and mp4v codecs.')
             cap.release()
             return
 

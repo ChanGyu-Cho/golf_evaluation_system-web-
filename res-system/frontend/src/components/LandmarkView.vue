@@ -6,22 +6,22 @@
       <select id="joint" v-model="selectedJointLocal">
         <option value="">전체 보기</option>
         <option v-for="k in jointKeys" :key="k" :value="k">
-          {{ koreanJointNameMap[k] || k }}
+          {{ (koreanJointNameMap && koreanJointNameMap[k]) || k }}
         </option>
       </select>
     </div>
 
     <!-- 프레임 정보 -->
-    <div v-if="currentJointData">
+  <div v-if="safeCurrent && typeof safeCurrent === 'object' && Object.keys(safeCurrent).length">
       <div v-if="!selectedJointLocal" class="joint-list scroll-area">
         <div
-          v-for="[k, v] in filteredJointData"
-          :key="k"
+          v-for="item in filteredEntries"
+          :key="item.k"
           class="joint-badge"
-          :style="{ borderLeftColor: paletteMap[k] }"
+          :style="{ borderLeftColor: (paletteMap && paletteMap[item.k]) || '#ccc' }"
         >
-          <span>{{ koreanJointNameMap[k] || k }}</span>
-          <strong>{{ isNum(v) ? v.toFixed(1) : '-' }}</strong>
+          <span>{{ (koreanJointNameMap && koreanJointNameMap[item.k]) || item.k }}</span>
+          <strong>{{ isNum(item.v) ? Number(item.v).toFixed(1) : '-' }}</strong>
         </div>
       </div>
 
@@ -29,18 +29,14 @@
       <div
         v-else
         class="joint-highlight"
-        :style="{ background: highlightBg, borderColor: highlightColor }"
+    :style="{ background: highlightBg, borderColor: highlightColor }"
       >
-        <span class="frame-info">Frame: {{ currentJointData.frame }}</span>
+  <span class="frame-info">Frame: {{ (safeCurrent && safeCurrent.frame) || '-' }}</span>
         <span class="joint-name">
-          {{ koreanJointNameMap[selectedJointLocal] || selectedJointLocal }}
+          {{ (koreanJointNameMap && koreanJointNameMap[selectedJointLocal]) || selectedJointLocal }}
         </span>
         <span class="joint-value">
-          {{
-            isNum(currentJointData[selectedJointLocal])
-              ? currentJointData[selectedJointLocal].toFixed(2)
-              : '-'
-          }}
+          {{ isNum(currentValue) ? Number(currentValue).toFixed(2) : '-' }}
         </span>
       </div>
     </div>
@@ -59,9 +55,9 @@ import Chart from 'chart.js/auto'
 
 /* ---------- Props & Emits ---------- */
 const props = defineProps({
-  jointData: { type: Array, required: true },
-  currentJointData: { type: Object, required: false },
-  koreanJointNameMap: { type: Object, required: true },
+  jointData: { type: Array, required: false, default: () => [] },
+  currentJointData: { type: Object, required: false, default: () => ({}) },
+  koreanJointNameMap: { type: Object, required: false, default: () => ({}) },
   comStabilityScores: { type: Array, default: () => [] },
   modelValue: { type: String, default: '' },
 })
@@ -76,19 +72,42 @@ const jointData = computed(() => props.jointData || [])
 const jointKeys = computed(() =>
   jointData.value.length ? Object.keys(jointData.value[0]).filter(k => k !== 'frame') : []
 )
-const filteredJointData = computed(() =>
-  props.currentJointData
-    ? Object.entries(props.currentJointData).filter(([k]) => k !== 'frame')
-    : []
+// safeCurrent ensures we never call Object.entries on undefined/null and
+// provides a stable object reference for the template to read from.
+const safeCurrent = computed(() =>
+  props.currentJointData && typeof props.currentJointData === 'object' && Object.keys(props.currentJointData).length
+    ? props.currentJointData
+    : null
 )
 
+const filteredJointData = computed(() =>
+  safeCurrent.value ? Object.entries(safeCurrent.value).filter(([k]) => k !== 'frame') : []
+)
+
+// Safer entries for template iteration: { k, v }
+const filteredEntries = computed(() =>
+  filteredJointData.value.map(([k, v]) => ({ k, v }))
+)
+
+// currentValue returns the selected joint value from currentJointData or null
+const currentValue = computed(() => {
+  if (!safeCurrent.value) return null
+  const key = selectedJointLocal.value
+  if (!key) return null
+  const v = safeCurrent.value[key]
+  return v === undefined ? null : v
+})
+
 /* ---------- Palette (정적) ---------- */
-const palette = i => `hsl(${i * 45 % 360} 70% 55%)`
-const paletteMap = Object.fromEntries(jointKeys.value.map((k, i) => [k, palette(i)]))
-paletteMap['com_stability_score'] = '#ffa500'
+const palette = i => `hsl(${(i * 45) % 360} 70% 55%)`
+const paletteMap = computed(() => {
+  const map = Object.fromEntries(jointKeys.value.map((k, i) => [k, palette(i)]))
+  map['com_stability_score'] = '#ffa500'
+  return map
+})
 
 /* ---------- Highlight Color ---------- */
-const highlightColor = computed(() => paletteMap[selectedJointLocal.value] || '#888')
+const highlightColor = computed(() => paletteMap.value[selectedJointLocal.value] || '#888')
 const highlightBg = computed(() => highlightColor.value + '22')
 const isNum = v => typeof v === 'number' && !isNaN(v)
 
@@ -99,16 +118,17 @@ let needsUpdate = false
 
 function buildDatasets() {
   const ds = []
-  const rows = jointData.value
-  const labels = rows.map(r => r.frame)
+  // sanitize rows: ensure each entry is an object and has a frame
+  const rows = (jointData.value || []).filter(r => r && typeof r === 'object')
+  const labels = rows.map(r => (r && (r.frame ?? null)))
 
-  if (!labels.length) return { ds, labels }
+  if (!rows.length) return { ds, labels }
 
-  if (selectedJointLocal.value === 'com_stability_score') {
+    if (selectedJointLocal.value === 'com_stability_score') {
     ds.push({
       label: 'COM 안정성',
-      data: props.comStabilityScores.map(d => d.score),
-      borderColor: paletteMap['com_stability_score'],
+      data: (props.comStabilityScores || []).map(d => (d && d.score) || 0),
+      borderColor: paletteMap.value['com_stability_score'],
       backgroundColor: '#ffa50033',
       tension: 0.4,
       pointRadius: 0,
@@ -116,13 +136,15 @@ function buildDatasets() {
       fill: true,
       spanGaps: true,
     })
-  } else if (selectedJointLocal.value) {
+    } else if (selectedJointLocal.value) {
     const k = selectedJointLocal.value
+    const label = (props.koreanJointNameMap && props.koreanJointNameMap[k]) || k
+    const color = paletteMap.value[k] || '#888'
     ds.push({
-      label: props.koreanJointNameMap[k] || k,
-      data: rows.map(r => r[k]),
-      borderColor: paletteMap[k],
-      backgroundColor: paletteMap[k] + '33',
+      label,
+      data: rows.map(r => (r && r[k] !== undefined ? r[k] : null)),
+      borderColor: color,
+      backgroundColor: color + '33',
       tension: 0.4,
       pointRadius: 0,
       borderWidth: 2,
@@ -130,10 +152,12 @@ function buildDatasets() {
     })
   } else {
     jointKeys.value.forEach(k => {
+      const label = (props.koreanJointNameMap && props.koreanJointNameMap[k]) || k
+      const color = paletteMap.value[k] || '#888'
       ds.push({
-        label: props.koreanJointNameMap[k] || k,
-        data: rows.map(r => r[k]),
-        borderColor: paletteMap[k],
+        label,
+        data: rows.map(r => (r && r[k] !== undefined ? r[k] : null)),
+        borderColor: color,
         tension: 0.35,
         pointRadius: 0,
         spanGaps: true,

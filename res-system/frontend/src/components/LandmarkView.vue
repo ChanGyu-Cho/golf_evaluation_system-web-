@@ -44,7 +44,10 @@
     <!-- 차트 -->
       <div v-if="jointData.length" class="chart-container u-card">
         <template v-if="hasNumericData">
-          <canvas ref="chartRef"></canvas>
+            <div class="chart-canvas-wrap" style="position:relative">
+              <canvas ref="chartRef"></canvas>
+              <div ref="overlayRef" class="red-line-overlay" aria-hidden="true"></div>
+            </div>
         </template>
         <template v-else>
           <div class="no-data" style="padding:24px; text-align:center; color:#666">
@@ -139,6 +142,38 @@ const chartRef = ref(null)
 let needsUpdate = false
 // value used by Chart plugin to position the red-line (frame number)
 let pluginCurrentFrame = 0
+const overlayRef = ref(null)
+
+function computeOverlayPosition() {
+  try {
+    if (!chartInstance || !chartInstance.chartArea) return
+    const left = chartInstance.chartArea.left
+    const right = chartInstance.chartArea.right
+    // determine numeric x-range from datasets
+    let xs = []
+    for (const ds of (chartInstance.data && chartInstance.data.datasets) || []) {
+      for (const p of ds.data || []) {
+        if (p && typeof p.x === 'number' && !isNaN(p.x)) xs.push(p.x)
+      }
+    }
+    if (!xs.length) return
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const f = Number(pluginCurrentFrame)
+    const ratio = maxX === minX ? 0 : (f - minX) / (maxX - minX)
+    const clamped = Math.max(0, Math.min(1, ratio || 0))
+    const xPx = left + clamped * (right - left)
+    if (overlayRef.value && overlayRef.value.style) {
+      overlayRef.value.style.left = `${Math.round(xPx)}px`
+      overlayRef.value.style.height = `${chartInstance.chartArea.bottom - chartInstance.chartArea.top}px`
+      overlayRef.value.style.top = `${chartInstance.chartArea.top}px`
+      overlayRef.value.style.display = 'block'
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.debug('[LandmarkView] computeOverlayPosition failed', e && e.message)
+  }
+}
 
 // Chart.js plugin: draws a vertical red line at the provided frame index
 const redLinePlugin = {
@@ -160,18 +195,39 @@ const redLinePlugin = {
       if (typeof maybe === 'number' && !isNaN(maybe)) x = maybe
     } catch (e) {
       // ignore and fall through to other strategies
+      // eslint-disable-next-line no-console
+      console.debug('[LandmarkView] getPixelForValue try failed', e && e.message)
     }
 
     // 2) If that didn't work, try matching labels exactly or numerically
     if (x === null) {
-      let idx = labels.indexOf(frame)
+      let idx = labels.findIndex(l => l === frame)
       if (idx === -1) idx = labels.findIndex(l => Number(l) === Number(frame))
+      // If still not found, pick the nearest numeric label (handles sparse/non-contiguous frames)
+      if (idx === -1) {
+        const numericLabels = labels.map((l, i) => ({ v: Number(l), i })).filter(o => !isNaN(o.v))
+        if (numericLabels.length) {
+          let best = numericLabels[0]
+          for (const nl of numericLabels) {
+            if (Math.abs(nl.v - Number(frame)) < Math.abs(best.v - Number(frame))) best = nl
+          }
+          idx = best.i
+        }
+      }
       if (idx !== -1) {
+        // try index-based getPixelForValue (category scales expect index)
         try {
-          const maybe2 = xScale.getPixelForValue(labels[idx])
-          if (typeof maybe2 === 'number' && !isNaN(maybe2)) x = maybe2
+          const maybeIdx = xScale.getPixelForValue(idx)
+          if (typeof maybeIdx === 'number' && !isNaN(maybeIdx)) x = maybeIdx
         } catch (e) {
-          // ignore
+          // fallback to label value
+          try {
+            const maybe2 = xScale.getPixelForValue(labels[idx])
+            if (typeof maybe2 === 'number' && !isNaN(maybe2)) x = maybe2
+          } catch (e2) {
+            // eslint-disable-next-line no-console
+            console.debug('[LandmarkView] getPixelForValue fallback failed', e2 && e2.message)
+          }
         }
       }
     }
@@ -190,6 +246,14 @@ const redLinePlugin = {
       }
     }
     if (x === null) return
+    // DEBUG: surface what we computed for troubleshooting
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[LandmarkView] redLine', { frame, x, labelsCount: labels.length, labelsSample: labels.slice(0,6) })
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.debug('[LandmarkView] redLine log failed', e && e.message)
+    }
     ctx.save()
     ctx.strokeStyle = 'rgba(255,0,0,0.9)'
     ctx.lineWidth = 2
@@ -206,14 +270,15 @@ function buildDatasets() {
   const ds = []
   // sanitize rows: ensure each entry is an object and has a frame
   const rows = (jointData.value || []).filter(r => r && typeof r === 'object')
-  const labels = rows.map(r => (r && (r.frame ?? null)))
+  // labels kept for debugging but we will use numeric x values in datasets
+  const labels = rows.map(r => Number(r && (r.frame ?? null)))
 
   if (!rows.length) return { ds, labels }
 
     if (selectedJointLocal.value === 'com_stability_score') {
     ds.push({
       label: 'COM 안정성',
-      data: (props.comStabilityScores || []).map(d => (d && d.score) || 0),
+      data: (props.comStabilityScores || []).map(d => ({ x: Number(d && d.frame) || 0, y: (d && d.score) || 0 })),
       borderColor: paletteMap.value['com_stability_score'],
       backgroundColor: '#ffa50033',
       tension: 0.4,
@@ -228,7 +293,7 @@ function buildDatasets() {
     const color = paletteMap.value[k] || '#888'
     ds.push({
       label,
-      data: rows.map(r => (r && r[k] !== undefined ? r[k] : null)),
+      data: rows.map(r => ({ x: Number(r.frame), y: (r && r[k] !== undefined ? r[k] : null) })),
       borderColor: color,
       backgroundColor: color + '33',
       tension: 0.4,
@@ -242,7 +307,7 @@ function buildDatasets() {
       const color = paletteMap.value[k] || '#888'
       ds.push({
         label,
-        data: rows.map(r => (r && r[k] !== undefined ? r[k] : null)),
+        data: rows.map(r => ({ x: Number(r.frame), y: (r && r[k] !== undefined ? r[k] : null) })),
         borderColor: color,
         tension: 0.35,
         pointRadius: 0,
@@ -251,35 +316,38 @@ function buildDatasets() {
       })
     })
   }
-  return { ds, labels }
+  return { ds }
 }
 
 function updateChart() {
   if (!chartRef.value) return
-  const { ds, labels } = buildDatasets()
+  const { ds } = buildDatasets()
     if (!chartInstance) {
     chartInstance = new Chart(chartRef.value, {
       type: 'line',
-      data: { labels, datasets: ds },
+      data: { datasets: ds },
       options: {
         _drawRedLine: true,
         responsive: true,
         animation: false,
+        parsing: false, // we provide {x,y} points
+        normalized: true,
         scales: {
-          x: { grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'Frame' } },
+          x: { type: 'linear', grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'Frame' } },
           y: { grid: { color: 'rgba(0,0,0,0.05)' } },
         },
         plugins: {
           legend: { position: 'bottom', labels: { padding: 12 } },
-          tooltip: { mode: 'index', intersect: false },
+          tooltip: { mode: 'nearest', intersect: false },
         }
       }
     })
   } else {
-    chartInstance.data.labels = labels
+    // replace datasets while keeping existing chart options
     chartInstance.data.datasets = ds
     safeUpdate()
   }
+  try { computeOverlayPosition() } catch(e) { console.debug('[LandmarkView] computeOverlayPosition error', e && e.message) }
 }
 
 // Safe update helper: perform chart update asynchronously and fall back to recreate on error
@@ -300,6 +368,7 @@ function safeUpdate() {
         console.error('[LandmarkView] chart rebuild failed', re && re.message)
       }
     }
+  try { computeOverlayPosition() } catch(e){ console.debug('[LandmarkView] computeOverlayPosition error', e && e.message) }
   }, 0)
 }
 
@@ -307,12 +376,49 @@ function safeUpdate() {
 watch(() => props.currentFrameIndex, (nf) => {
   try {
     pluginCurrentFrame = Number(nf) || 0
-    if (chartInstance) {
-      // plugin reads pluginCurrentFrame directly; just trigger a redraw
-      chartInstance.update('none')
+  // eslint-disable-next-line no-console
+  console.debug('[LandmarkView] watcher currentFrameIndex ->', pluginCurrentFrame)
+  if (chartInstance) safeUpdate()
+    } catch (e) {
+      // non-fatal
+      console.debug('[LandmarkView] watcher currentFrameIndex error', e && e.message)
     }
+})
+
+// Also watch the provided currentJointData object (parent passes this per-frame object).
+// When available, prefer its `frame` value for the red-line to match what the comment view shows.
+watch(() => props.currentJointData, (nj) => {
+  try {
+    if (nj && typeof nj === 'object' && nj.frame !== undefined && nj.frame !== null) {
+      pluginCurrentFrame = Number(nj.frame) || 0
+    } else {
+      pluginCurrentFrame = Number(props.currentFrameIndex) || 0
+    }
+  // eslint-disable-next-line no-console
+  console.debug('[LandmarkView] watcher currentJointData ->', pluginCurrentFrame, nj && nj.frame)
+  if (chartInstance) safeUpdate()
+  } catch (e) {
+    // ignore
+    console.debug('[LandmarkView] watcher currentJointData error', e && e.message)
+  }
+}, { deep: false })
+
+// initialize pluginCurrentFrame on mount to prefer currentJointData.frame when available
+onMounted(() => {
+  try {
+    const cj = props.currentJointData
+    if (cj && typeof cj === 'object' && cj.frame !== undefined && cj.frame !== null) {
+      pluginCurrentFrame = Number(cj.frame) || 0
+    } else {
+      pluginCurrentFrame = Number(props.currentFrameIndex) || 0
+    }
+    // ensure chart is drawn with initial plugin frame
+  if (chartInstance) safeUpdate()
+  // position overlay after mount
+  setTimeout(() => { try { computeOverlayPosition() } catch(e){ console.debug('[LandmarkView] computeOverlayPosition timeout error', e && e.message) } }, 50)
   } catch (e) {
     // non-fatal
+    console.debug('[LandmarkView] onMounted init error', e && e.message)
   }
 })
 
@@ -377,4 +483,15 @@ onMounted(() => {
   padding: 12px 16px; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
 }
 .chart-container canvas { width: 100% !important; }
+/* overlay red-line */
+.red-line-overlay {
+  position: absolute;
+  width: 2px;
+  background: rgba(255,0,0,0.95);
+  top: 0;
+  left: 0;
+  display: none;
+  pointer-events: none;
+  z-index: 5;
+}
 </style>

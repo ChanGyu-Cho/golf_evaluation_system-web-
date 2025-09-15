@@ -1,0 +1,13 @@
+[Unit]
+Description=RES System
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/web_service/server
+EnvironmentFile=/home/ubuntu/web_service/server/.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/web_service/server/res-system.jar
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

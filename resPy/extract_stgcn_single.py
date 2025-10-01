@@ -19,10 +19,24 @@ def extract_stgcn_embedding(crop_csv_path, out_npy_path):
     out_npy_path: Path (저장)
     """
     # 환경에 맞게 경로 수정
+    # BASE_DIR: path to your mmaction2 (or mmcv/mmengine) repo if needed
     BASE_DIR = r"D:/mmaction2"
     sys.path.insert(0, BASE_DIR)
-    CFG = r"D:/golf_evaluation_system-web-/resPy/my_stgcnpp.py"
-    CKPT = r"D:/golf_evaluation_system-web-/resPy/stgcn_62p.pth"
+    # Prefer repository-local config/checkpoint files. Use Path for robust path handling.
+    repo_dir = Path(__file__).parent
+    CFG = str(repo_dir / 'my_stgcnpp.py')
+    # Try commonly used checkpoint names, then search for any stgcn_*.pth in this folder.
+    ckpt_candidates = [repo_dir / 'stgcn_62p.pth', repo_dir / 'stgcn_70p.pth']
+    found_ckpt = next((p for p in ckpt_candidates if p.exists()), None)
+    if found_ckpt is None:
+        # fallback: pick the first matching file
+        for p in repo_dir.glob('stgcn_*.pth'):
+            found_ckpt = p
+            break
+    if found_ckpt is None:
+        raise FileNotFoundError(
+            f"No STGCN checkpoint found. Looked for: {[str(p) for p in ckpt_candidates]} and pattern stgcn_*.pth in {repo_dir}")
+    CKPT = str(found_ckpt)
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # data_loader.ipynb의 make_pkl, load_and_process 방식 반영
